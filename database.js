@@ -35,38 +35,7 @@ class Database {
         }
 
         if (this.deliveries.length === 0) {
-            const today = new Date();
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            const dayAfter = new Date(tomorrow);
-            dayAfter.setDate(dayAfter.getDate() + 1);
-
-            this.deliveries = [
-                {
-                    id: 1,
-                    truckId: 1,
-                    customerId: 1,
-                    startDate: this.formatDate(today),
-                    startTime: '09:00',
-                    endDate: this.formatDate(today),
-                    endTime: '17:00',
-                    destinations: ['東京都千代田区'],
-                    cargo: '電化製品 500kg',
-                    status: 'inprogress'
-                },
-                {
-                    id: 2,
-                    truckId: 2,
-                    customerId: 2,
-                    startDate: this.formatDate(tomorrow),
-                    startTime: '08:00',
-                    endDate: this.formatDate(dayAfter),
-                    endTime: '18:00',
-                    destinations: ['神奈川県横浜市', '静岡県静岡市'],
-                    cargo: '食品 800kg',
-                    status: 'scheduled'
-                }
-            ];
+            this.deliveries = this.generateSampleDeliveries();
             this.saveData('deliveries', this.deliveries);
         }
     }
@@ -76,6 +45,148 @@ class Database {
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
+    }
+
+    generateSampleDeliveries() {
+        const deliveries = [];
+        let id = 1;
+        const currentYear = new Date().getFullYear();
+
+        const destinations = [
+            ['東京都千代田区'],
+            ['東京都港区', '東京都品川区'],
+            ['神奈川県横浜市'],
+            ['神奈川県川崎市', '神奈川県横浜市'],
+            ['埼玉県さいたま市'],
+            ['千葉県千葉市', '千葉県船橋市'],
+            ['静岡県静岡市'],
+            ['愛知県名古屋市'],
+            ['大阪府大阪市'],
+            ['福岡県福岡市'],
+            ['東京都新宿区', '東京都渋谷区', '東京都世田谷区'],
+            ['神奈川県相模原市'],
+            ['千葉県柏市'],
+            ['埼玉県川口市', '埼玉県越谷市']
+        ];
+
+        const cargoTypes = [
+            '電化製品 500kg',
+            '食品 800kg',
+            '衣料品 300kg',
+            '建材 1200kg',
+            '医薬品 200kg',
+            '精密機器 400kg',
+            '日用品 600kg',
+            '書籍 350kg',
+            '家具 900kg',
+            '工業部品 750kg',
+            '飲料 1000kg',
+            '冷凍食品 650kg',
+            '化学製品 550kg',
+            '文房具 250kg',
+            'OA機器 450kg'
+        ];
+
+        // 4月のデータ（30日分）
+        for (let day = 1; day <= 30; day++) {
+            const deliveriesPerDay = Math.floor(Math.random() * 3) + 2; // 2-4件/日
+
+            for (let i = 0; i < deliveriesPerDay; i++) {
+                const truckId = (id % 3) + 1;
+                const customerId = (id % 3) + 1;
+                const startHour = 8 + Math.floor(Math.random() * 3);
+                const duration = Math.floor(Math.random() * 5) + 4; // 4-8時間
+                const isMultiDay = Math.random() > 0.8;
+
+                const startDate = new Date(currentYear, 3, day); // 3 = April (0-indexed)
+                const endDate = isMultiDay ? new Date(currentYear, 3, day + 1) : startDate;
+
+                deliveries.push({
+                    id: id++,
+                    truckId,
+                    customerId,
+                    startDate: this.formatDate(startDate),
+                    startTime: `${String(startHour).padStart(2, '0')}:00`,
+                    endDate: this.formatDate(endDate),
+                    endTime: `${String((startHour + duration) % 24).padStart(2, '0')}:00`,
+                    destinations: destinations[Math.floor(Math.random() * destinations.length)],
+                    cargo: cargoTypes[Math.floor(Math.random() * cargoTypes.length)],
+                    status: 'completed'
+                });
+            }
+        }
+
+        // 5月のデータ（31日分）
+        for (let day = 1; day <= 31; day++) {
+            const deliveriesPerDay = Math.floor(Math.random() * 4) + 2; // 2-5件/日
+
+            for (let i = 0; i < deliveriesPerDay; i++) {
+                const truckId = (id % 3) + 1;
+                const customerId = (id % 3) + 1;
+                const startHour = 7 + Math.floor(Math.random() * 4);
+                const duration = Math.floor(Math.random() * 6) + 4; // 4-9時間
+                const isMultiDay = Math.random() > 0.75;
+
+                const startDate = new Date(currentYear, 4, day); // 4 = May
+                const endDate = isMultiDay ? new Date(currentYear, 4, day + 1) : startDate;
+
+                deliveries.push({
+                    id: id++,
+                    truckId,
+                    customerId,
+                    startDate: this.formatDate(startDate),
+                    startTime: `${String(startHour).padStart(2, '0')}:00`,
+                    endDate: this.formatDate(endDate),
+                    endTime: `${String((startHour + duration) % 24).padStart(2, '0')}:00`,
+                    destinations: destinations[Math.floor(Math.random() * destinations.length)],
+                    cargo: cargoTypes[Math.floor(Math.random() * cargoTypes.length)],
+                    status: 'completed'
+                });
+            }
+        }
+
+        // 6月のデータ（現在の日付まで + 未来の予定）
+        const today = new Date();
+        const currentDay = today.getMonth() === 5 ? today.getDate() : 30;
+
+        for (let day = 1; day <= 30; day++) {
+            const deliveriesPerDay = Math.floor(Math.random() * 4) + 2; // 2-5件/日
+
+            for (let i = 0; i < deliveriesPerDay; i++) {
+                const truckId = (id % 3) + 1;
+                const customerId = (id % 3) + 1;
+                const startHour = 7 + Math.floor(Math.random() * 5);
+                const duration = Math.floor(Math.random() * 6) + 4; // 4-9時間
+                const isMultiDay = Math.random() > 0.8;
+
+                const startDate = new Date(currentYear, 5, day); // 5 = June
+                const endDate = isMultiDay ? new Date(currentYear, 5, day + 1) : startDate;
+
+                let status;
+                if (day < currentDay - 1) {
+                    status = 'completed';
+                } else if (day === currentDay - 1 || day === currentDay) {
+                    status = Math.random() > 0.5 ? 'inprogress' : 'completed';
+                } else {
+                    status = 'scheduled';
+                }
+
+                deliveries.push({
+                    id: id++,
+                    truckId,
+                    customerId,
+                    startDate: this.formatDate(startDate),
+                    startTime: `${String(startHour).padStart(2, '0')}:00`,
+                    endDate: this.formatDate(endDate),
+                    endTime: `${String((startHour + duration) % 24).padStart(2, '0')}:00`,
+                    destinations: destinations[Math.floor(Math.random() * destinations.length)],
+                    cargo: cargoTypes[Math.floor(Math.random() * cargoTypes.length)],
+                    status
+                });
+            }
+        }
+
+        return deliveries;
     }
 
     getAllDeliveries() {
