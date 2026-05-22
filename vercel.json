@@ -1,16 +1,7 @@
 {
   "version": 2,
-  "name": "truck-delivery-system",
-  "builds": [
-    {
-      "src": "index.html",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
-  ]
+  "buildCommand": null,
+  "devCommand": null,
+  "installCommand": null,
+  "framework": null
 }
