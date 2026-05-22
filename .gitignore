@@ -14,3 +14,12 @@ Thumbs.db
 
 # Temporary files
 *.tmp
+
+# Next.js specific (for compatibility with Next.js version)
+/node_modules
+/.next/
+/out/
+.vercel
+.env*
+*.tsbuildinfo
+next-env.d.ts
