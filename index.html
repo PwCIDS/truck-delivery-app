@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>トラック配送管理システム</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <h1>トラック配送管理システム</h1>
+                <button id="show-shortcuts" class="btn-help" title="キーボードショートカット">⌨️ ショートカット</button>
+            </div>
+            <nav>
+                <button id="nav-dashboard" class="nav-btn active">ダッシュボード</button>
+                <button id="nav-delivery" class="nav-btn">配送管理</button>
+                <button id="nav-trucks" class="nav-btn">トラックマスタ</button>
+                <button id="nav-customers" class="nav-btn">顧客マスタ</button>
+                <button id="nav-reports" class="nav-btn">統計・レポート</button>
+                <button id="nav-data" class="nav-btn">データ管理</button>
+            </nav>
+        </header>
+
+        <main>
+            <!-- ダッシュボード画面 -->
+            <section id="dashboard-section" class="section active">
+                <div class="section-header">
+                    <h2>ダッシュボード</h2>
+                </div>
+
+                <div class="dashboard-container">
+                    <div class="notification-card notification-card-today">
+                        <h3>📅 今日の配送</h3>
+                        <div id="today-deliveries"></div>
+                    </div>
+
+                    <div class="notification-card notification-card-tomorrow">
+                        <h3>🔔 明日の配送</h3>
+                        <div id="tomorrow-deliveries"></div>
+                    </div>
+
+                    <div class="notification-card notification-card-inprogress">
+                        <h3>🚚 運転中の配送</h3>
+                        <div id="inprogress-deliveries-list"></div>
+                    </div>
+
+                    <div class="notification-card notification-card-alert">
+                        <h3>⚠️ 注意が必要な配送</h3>
+                        <div id="alert-deliveries"></div>
+                    </div>
+
+                    <div class="notification-card">
+                        <h3>📊 今月のサマリー</h3>
+                        <div id="month-summary"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 配送管理画面 -->
+            <section id="delivery-section" class="section">
+                <div class="section-header">
+                    <h2>配送管理</h2>
+                    <div class="view-toggle">
+                        <button id="view-calendar" class="view-btn active">カレンダー表示</button>
+                        <button id="view-list" class="view-btn">リスト表示</button>
+                    </div>
+                    <div class="header-actions">
+                        <button id="print-delivery" class="btn-secondary">🖨 印刷</button>
+                        <button id="add-delivery" class="btn-primary">+ 新規配送登録</button>
+                    </div>
+                </div>
+
+                <!-- カレンダー表示 -->
+                <div id="calendar-view" class="calendar-view">
+                    <div class="calendar-controls">
+                        <button id="prev-month">&lt;</button>
+                        <span id="current-month"></span>
+                        <button id="next-month">&gt;</button>
+                    </div>
+                    <div id="calendar-matrix" class="calendar-matrix"></div>
+                </div>
+
+                <!-- リスト表示 -->
+                <div id="list-view" class="list-view" style="display: none;">
+                    <div class="filter-bar">
+                        <input type="text" id="search-delivery" placeholder="キーワード検索...">
+                        <select id="filter-truck">
+                            <option value="">全てのトラック</option>
+                        </select>
+                        <select id="filter-customer">
+                            <option value="">全ての顧客</option>
+                        </select>
+                        <select id="filter-status">
+                            <option value="">全てのステータス</option>
+                            <option value="scheduled">予定</option>
+                            <option value="inprogress">運転中</option>
+                            <option value="completed">完了</option>
+                        </select>
+                    </div>
+                    <div class="date-filter-bar">
+                        <label>期間:</label>
+                        <input type="date" id="filter-start-date">
+                        <span>〜</span>
+                        <input type="date" id="filter-end-date">
+                        <button id="clear-filters" class="btn-secondary">フィルタクリア</button>
+                    </div>
+                    <table id="delivery-table">
+                        <thead>
+                            <tr>
+                                <th class="sortable" data-sort="startDate">出発日時 <span class="sort-icon">↕</span></th>
+                                <th class="sortable" data-sort="endDate">到着日時 <span class="sort-icon">↕</span></th>
+                                <th>トラック</th>
+                                <th>顧客</th>
+                                <th>行先</th>
+                                <th>積載内容</th>
+                                <th class="sortable" data-sort="status">ステータス <span class="sort-icon">↕</span></th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="delivery-list"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- トラックマスタ画面 -->
+            <section id="trucks-section" class="section">
+                <div class="section-header">
+                    <h2>トラックマスタ</h2>
+                    <button id="add-truck" class="btn-primary">+ 新規トラック登録</button>
+                </div>
+                <div class="filter-bar">
+                    <input type="text" id="search-truck" placeholder="トラックNo、車両番号で検索...">
+                </div>
+                <table id="trucks-table">
+                    <thead>
+                        <tr>
+                            <th>トラックNo</th>
+                            <th>車両番号</th>
+                            <th>最大積載量</th>
+                            <th>購入日</th>
+                            <th>ステータス</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trucks-list"></tbody>
+                </table>
+            </section>
+
+            <!-- 顧客マスタ画面 -->
+            <section id="customers-section" class="section">
+                <div class="section-header">
+                    <h2>顧客マスタ</h2>
+                    <button id="add-customer" class="btn-primary">+ 新規顧客登録</button>
+                </div>
+                <div class="filter-bar">
+                    <input type="text" id="search-customer" placeholder="顧客コード、顧客名、住所で検索...">
+                </div>
+                <table id="customers-table">
+                    <thead>
+                        <tr>
+                            <th>顧客コード</th>
+                            <th>顧客名</th>
+                            <th>住所</th>
+                            <th>電話番号</th>
+                            <th>担当者</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customers-list"></tbody>
+                </table>
+            </section>
+
+            <!-- 統計・レポート画面 -->
+            <section id="reports-section" class="section">
+                <div class="section-header">
+                    <h2>統計・レポート</h2>
+                    <button id="print-reports" class="btn-secondary">🖨 印刷</button>
+                </div>
+
+                <div class="stats-container">
+                    <div class="stats-card">
+                        <h3>📊 配送統計</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-label">総配送数</div>
+                                <div class="stat-value" id="total-deliveries">0</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">今月の配送数</div>
+                                <div class="stat-value" id="month-deliveries">0</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">完了済み配送</div>
+                                <div class="stat-value" id="completed-deliveries">0</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">運転中</div>
+                                <div class="stat-value" id="inprogress-deliveries">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stats-card">
+                        <h3>🚚 トラック稼働率</h3>
+                        <div id="truck-utilization"></div>
+                    </div>
+
+                    <div class="stats-card">
+                        <h3>👥 顧客別配送回数（上位10件）</h3>
+                        <div id="customer-ranking"></div>
+                    </div>
+
+                    <div class="stats-card">
+                        <h3>📅 月別配送推移（直近6ヶ月）</h3>
+                        <div id="monthly-trend"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- データ管理画面 -->
+            <section id="data-section" class="section">
+                <div class="section-header">
+                    <h2>データ管理</h2>
+                </div>
+
+                <div class="data-management-container">
+                    <div class="data-card">
+                        <h3>データエクスポート</h3>
+                        <p>データをCSV形式でバックアップします</p>
+                        <div class="data-actions">
+                            <button id="export-deliveries" class="btn-primary">配送データをエクスポート</button>
+                            <button id="export-trucks" class="btn-primary">トラックデータをエクスポート</button>
+                            <button id="export-customers" class="btn-primary">顧客データをエクスポート</button>
+                            <button id="export-all" class="btn-primary">全データをエクスポート</button>
+                        </div>
+                    </div>
+
+                    <div class="data-card">
+                        <h3>データインポート</h3>
+                        <p>CSV形式のデータをインポートします（既存データに追加されます）</p>
+                        <div class="data-actions">
+                            <input type="file" id="import-deliveries-file" accept=".csv" style="display: none;">
+                            <button id="import-deliveries" class="btn-secondary">配送データをインポート</button>
+
+                            <input type="file" id="import-trucks-file" accept=".csv" style="display: none;">
+                            <button id="import-trucks" class="btn-secondary">トラックデータをインポート</button>
+
+                            <input type="file" id="import-customers-file" accept=".csv" style="display: none;">
+                            <button id="import-customers" class="btn-secondary">顧客データをインポート</button>
+                        </div>
+                    </div>
+
+                    <div class="data-card data-card-warning">
+                        <h3>データ削除</h3>
+                        <p>全てのデータを削除します（この操作は取り消せません）</p>
+                        <div class="data-actions">
+                            <button id="clear-all-data" class="btn-danger">全データを削除</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 配送登録モーダル -->
+    <div id="delivery-modal" class="modal">
+        <div class="modal-content modal-content-large">
+            <span class="close">&times;</span>
+            <h2 id="delivery-modal-title">新規配送登録</h2>
+            <form id="delivery-form">
+                <input type="hidden" id="delivery-id">
+
+                <!-- トラック検索 -->
+                <div class="form-group">
+                    <label for="delivery-truck-search">トラック *</label>
+                    <div class="searchable-select">
+                        <input type="text" id="delivery-truck-search" placeholder="トラックを検索..." autocomplete="off">
+                        <input type="hidden" id="delivery-truck" required>
+                        <div id="delivery-truck-options" class="select-options"></div>
+                    </div>
+                    <div id="delivery-truck-selected" class="selected-item"></div>
+                </div>
+
+                <!-- 顧客検索 -->
+                <div class="form-group">
+                    <label for="delivery-customer-search">顧客 *</label>
+                    <div class="searchable-select">
+                        <input type="text" id="delivery-customer-search" placeholder="顧客を検索..." autocomplete="off">
+                        <input type="hidden" id="delivery-customer" required>
+                        <div id="delivery-customer-options" class="select-options"></div>
+                    </div>
+                    <div id="delivery-customer-selected" class="selected-item"></div>
+                </div>
+
+                <!-- 出発日時 -->
+                <div class="form-group">
+                    <label>出発日時 *</label>
+                    <div class="form-row">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <input type="date" id="delivery-start-date" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <input type="time" id="delivery-start-time" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 到着日時 -->
+                <div class="form-group">
+                    <label>到着日時 *</label>
+                    <div class="form-row">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <input type="date" id="delivery-end-date" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <input type="time" id="delivery-end-time" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 行先（複数） -->
+                <div class="form-group">
+                    <label>行先 *</label>
+                    <div id="destinations-list"></div>
+                    <div class="destination-input-group">
+                        <input type="text" id="destination-input" placeholder="行先を入力...">
+                        <button type="button" id="add-destination" class="btn-add">+ 追加</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="delivery-cargo">積載内容 *</label>
+                    <textarea id="delivery-cargo" rows="3" required></textarea>
+                </div>
+
+                <div class="form-group" id="status-field" style="display: none;">
+                    <label for="delivery-status">ステータス</label>
+                    <select id="delivery-status">
+                        <option value="scheduled">予定</option>
+                        <option value="inprogress">運転中</option>
+                        <option value="completed">完了</option>
+                    </select>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancel-delivery">キャンセル</button>
+                    <button type="submit" class="btn-primary">登録</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- トラック登録モーダル -->
+    <div id="truck-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="truck-modal-title">新規トラック登録</h2>
+            <form id="truck-form">
+                <input type="hidden" id="truck-id">
+                <div class="form-group">
+                    <label for="truck-number">トラックNo *</label>
+                    <input type="text" id="truck-number" required>
+                </div>
+                <div class="form-group">
+                    <label for="truck-plate">車両番号 *</label>
+                    <input type="text" id="truck-plate" placeholder="例: 品川 500 あ 1234" required>
+                </div>
+                <div class="form-group">
+                    <label for="truck-capacity">最大積載量 (kg) *</label>
+                    <input type="number" id="truck-capacity" required>
+                </div>
+                <div class="form-group">
+                    <label for="truck-purchase-date">購入日 *</label>
+                    <input type="date" id="truck-purchase-date" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancel-truck">キャンセル</button>
+                    <button type="submit" class="btn-primary">登録</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 顧客登録モーダル -->
+    <div id="customer-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="customer-modal-title">新規顧客登録</h2>
+            <form id="customer-form">
+                <input type="hidden" id="customer-id">
+                <div class="form-group">
+                    <label for="customer-code">顧客コード *</label>
+                    <input type="text" id="customer-code" required>
+                </div>
+                <div class="form-group">
+                    <label for="customer-name">顧客名 *</label>
+                    <input type="text" id="customer-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="customer-address">住所 *</label>
+                    <input type="text" id="customer-address" required>
+                </div>
+                <div class="form-group">
+                    <label for="customer-phone">電話番号 *</label>
+                    <input type="tel" id="customer-phone" required>
+                </div>
+                <div class="form-group">
+                    <label for="customer-contact">担当者</label>
+                    <input type="text" id="customer-contact">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancel-customer">キャンセル</button>
+                    <button type="submit" class="btn-primary">登録</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- キーボードショートカットモーダル -->
+    <div id="shortcuts-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>キーボードショートカット</h2>
+            <div class="shortcuts-list">
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Ctrl + H</div>
+                    <div class="shortcut-desc">ダッシュボードを開く</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Ctrl + D</div>
+                    <div class="shortcut-desc">配送管理を開く</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Ctrl + T</div>
+                    <div class="shortcut-desc">トラックマスタを開く</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Ctrl + C</div>
+                    <div class="shortcut-desc">顧客マスタを開く</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Ctrl + R</div>
+                    <div class="shortcut-desc">統計・レポートを開く</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Ctrl + N</div>
+                    <div class="shortcut-desc">新規登録（現在の画面）</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Ctrl + P</div>
+                    <div class="shortcut-desc">印刷</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Esc</div>
+                    <div class="shortcut-desc">モーダルを閉じる</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="database.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
