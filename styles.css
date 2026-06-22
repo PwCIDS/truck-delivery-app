@@ -1224,6 +1224,169 @@ table tbody tr:hover {
     color: white;
 }
 
+/* アラートリスト */
+.alert-item {
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    border-left: 4px solid;
+    background-color: white;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.alert-item:hover {
+    transform: translateX(5px);
+}
+
+.alert-item.priority-high {
+    border-left-color: #e74c3c;
+    background-color: #fadbd8;
+}
+
+.alert-item.priority-medium {
+    border-left-color: #f39c12;
+    background-color: #fef5e7;
+}
+
+.alert-item.priority-low {
+    border-left-color: #3498db;
+    background-color: #ebf5fb;
+}
+
+.alert-message {
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #2c3e50;
+}
+
+.alert-detail {
+    font-size: 12px;
+    color: #666;
+}
+
+.alert-empty {
+    text-align: center;
+    color: #999;
+    padding: 20px;
+}
+
+/* 配送指示書 */
+.instruction-sheet {
+    font-family: 'MS Gothic', monospace;
+}
+
+.instruction-header {
+    text-align: center;
+    border-bottom: 3px solid #2c3e50;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.instruction-header h1 {
+    font-size: 28px;
+    margin-bottom: 10px;
+}
+
+.instruction-info {
+    font-size: 14px;
+    color: #666;
+}
+
+.instruction-section {
+    margin-bottom: 25px;
+}
+
+.instruction-section h3 {
+    background-color: #3498db;
+    color: white;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.instruction-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 15px;
+}
+
+.instruction-table th,
+.instruction-table td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+}
+
+.instruction-table th {
+    background-color: #ecf0f1;
+    font-weight: bold;
+    width: 30%;
+}
+
+.instruction-route-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 8px;
+}
+
+.route-number {
+    font-weight: bold;
+    font-size: 18px;
+    color: #3498db;
+    min-width: 40px;
+}
+
+.route-arrow {
+    margin: 0 10px;
+    color: #95a5a6;
+}
+
+.no-print {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+@media print {
+    .no-print {
+        display: none !important;
+    }
+
+    .modal {
+        display: block !important;
+        position: static;
+        background: white;
+    }
+
+    .modal-content {
+        margin: 0;
+        padding: 20px;
+        box-shadow: none;
+        max-width: 100%;
+    }
+
+    .instruction-sheet {
+        page-break-inside: avoid;
+    }
+}
+
+/* コスト表示 */
+.cost-value {
+    color: #27ae60;
+    font-weight: bold;
+}
+
+.distance-value {
+    color: #3498db;
+    font-weight: bold;
+}
+
 /* 印刷スタイル */
 @media print {
     body {

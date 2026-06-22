@@ -1,12 +1,13 @@
 class Database {
     constructor() {
-        this.dataVersion = '3.0'; // データバージョン
+        this.dataVersion = '4.0'; // データバージョン
         this.checkAndResetData();
         this.deliveries = this.loadData('deliveries') || [];
         this.trucks = this.loadData('trucks') || [];
         this.customers = this.loadData('customers') || [];
         this.drivers = this.loadData('drivers') || [];
         this.maintenances = this.loadData('maintenances') || [];
+        this.alerts = this.loadData('alerts') || [];
         this.initSampleData();
     }
 
@@ -157,6 +158,47 @@ class Database {
                 });
             }
             this.saveData('drivers', this.drivers);
+        }
+
+        if (this.maintenances.length === 0) {
+            this.maintenances = [];
+            const maintenanceTypes = ['車検', '定期点検', 'オイル交換', 'タイヤ交換', '整備'];
+
+            this.trucks.forEach(truck => {
+                // 各トラックに過去のメンテナンス履歴を生成
+                for (let i = 0; i < 3; i++) {
+                    const pastDate = new Date();
+                    pastDate.setMonth(pastDate.getMonth() - Math.floor(Math.random() * 12) - 1);
+
+                    this.maintenances.push({
+                        id: this.maintenances.length + 1,
+                        truckId: truck.id,
+                        type: maintenanceTypes[Math.floor(Math.random() * maintenanceTypes.length)],
+                        date: this.formatDate(pastDate),
+                        cost: Math.floor(Math.random() * 50000) + 10000,
+                        description: '定期メンテナンス実施',
+                        nextDate: null,
+                        status: 'completed'
+                    });
+                }
+
+                // 車検の次回予定を追加
+                const nextInspection = new Date();
+                nextInspection.setMonth(nextInspection.getMonth() + Math.floor(Math.random() * 6) + 1);
+
+                this.maintenances.push({
+                    id: this.maintenances.length + 1,
+                    truckId: truck.id,
+                    type: '車検',
+                    date: null,
+                    cost: null,
+                    description: '次回車検予定',
+                    nextDate: this.formatDate(nextInspection),
+                    status: 'scheduled'
+                });
+            });
+
+            this.saveData('maintenances', this.maintenances);
         }
 
         if (this.deliveries.length === 0) {
@@ -657,5 +699,149 @@ class Database {
         }
 
         return availableDrivers;
+    }
+
+    // メンテナンス管理
+    getAllMaintenances() {
+        return this.maintenances;
+    }
+
+    getMaintenanceById(id) {
+        return this.maintenances.find(m => m.id === id);
+    }
+
+    getMaintenancesByTruckId(truckId) {
+        return this.maintenances.filter(m => m.truckId === truckId);
+    }
+
+    addMaintenance(maintenance) {
+        const newId = this.maintenances.length > 0 ? Math.max(...this.maintenances.map(m => m.id)) + 1 : 1;
+        maintenance.id = newId;
+        this.maintenances.push(maintenance);
+        this.saveData('maintenances', this.maintenances);
+        return maintenance;
+    }
+
+    updateMaintenance(id, updatedMaintenance) {
+        const index = this.maintenances.findIndex(m => m.id === id);
+        if (index !== -1) {
+            updatedMaintenance.id = id;
+            this.maintenances[index] = updatedMaintenance;
+            this.saveData('maintenances', this.maintenances);
+            return true;
+        }
+        return false;
+    }
+
+    deleteMaintenance(id) {
+        const index = this.maintenances.findIndex(m => m.id === id);
+        if (index !== -1) {
+            this.maintenances.splice(index, 1);
+            this.saveData('maintenances', this.maintenances);
+            return true;
+        }
+        return false;
+    }
+
+    // アラート生成
+    generateAlerts() {
+        const alerts = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // 配送アラート
+        this.deliveries.forEach(delivery => {
+            if (delivery.status === 'scheduled') {
+                const startDateTime = new Date(delivery.startDate + ' ' + delivery.startTime);
+                const hoursUntil = (startDateTime - today) / (1000 * 60 * 60);
+
+                // 24時間以内の配送
+                if (hoursUntil > 0 && hoursUntil <= 24) {
+                    const truck = this.getTruckById(delivery.truckId);
+                    const driver = this.getDriverById(delivery.driverId);
+                    const customer = this.getCustomerById(delivery.customerId);
+
+                    let message = `配送予定: ${delivery.startDate} ${delivery.startTime}`;
+                    let warnings = [];
+
+                    if (!truck) warnings.push('トラック未選択');
+                    if (!driver) warnings.push('ドライバー未選択');
+
+                    if (warnings.length > 0) {
+                        message += ` (⚠️ ${warnings.join(', ')})`;
+                    }
+
+                    alerts.push({
+                        type: 'delivery',
+                        priority: warnings.length > 0 ? 'high' : 'medium',
+                        message: message,
+                        detail: `顧客: ${customer ? customer.name : '不明'} / 行先: ${delivery.destinations ? delivery.destinations[0] : ''}`,
+                        deliveryId: delivery.id,
+                        date: delivery.startDate
+                    });
+                }
+            }
+        });
+
+        // メンテナンスアラート
+        this.maintenances.forEach(maintenance => {
+            if (maintenance.status === 'scheduled' && maintenance.nextDate) {
+                const nextDate = new Date(maintenance.nextDate);
+                const daysUntil = Math.floor((nextDate - today) / (1000 * 60 * 60 * 24));
+
+                if (daysUntil >= 0 && daysUntil <= 30) {
+                    const truck = this.getTruckById(maintenance.truckId);
+                    const priority = daysUntil <= 7 ? 'high' : daysUntil <= 14 ? 'medium' : 'low';
+
+                    alerts.push({
+                        type: 'maintenance',
+                        priority: priority,
+                        message: `${maintenance.type}予定: ${maintenance.nextDate} (残り${daysUntil}日)`,
+                        detail: `トラック: ${truck ? truck.number : '不明'}`,
+                        maintenanceId: maintenance.id,
+                        date: maintenance.nextDate
+                    });
+                }
+            }
+        });
+
+        // 優先度でソート
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        alerts.sort((a, b) => {
+            if (a.priority !== b.priority) {
+                return priorityOrder[a.priority] - priorityOrder[b.priority];
+            }
+            return new Date(a.date) - new Date(b.date);
+        });
+
+        return alerts;
+    }
+
+    // 統計データ生成
+    getStatistics() {
+        const stats = {
+            totalDeliveries: this.deliveries.length,
+            completedDeliveries: this.deliveries.filter(d => d.status === 'completed').length,
+            inProgressDeliveries: this.deliveries.filter(d => d.status === 'inprogress').length,
+            scheduledDeliveries: this.deliveries.filter(d => d.status === 'scheduled').length,
+            totalTrucks: this.trucks.length,
+            totalDrivers: this.drivers.length,
+            totalCustomers: this.customers.length,
+            totalFuelCost: 0,
+            totalDistance: 0,
+            averageFuelCost: 0,
+            averageDistance: 0
+        };
+
+        const completedDeliveries = this.deliveries.filter(d => d.status === 'completed' && d.fuelCost);
+
+        if (completedDeliveries.length > 0) {
+            stats.totalFuelCost = completedDeliveries.reduce((sum, d) => sum + (d.fuelCost || 0), 0);
+            stats.totalDistance = completedDeliveries.reduce((sum, d) => sum + (d.distance || 0), 0);
+            stats.averageFuelCost = Math.round(stats.totalFuelCost / completedDeliveries.length);
+            stats.averageDistance = Math.round(stats.totalDistance / completedDeliveries.length);
+        }
+
+        return stats;
     }
 }

@@ -19,6 +19,7 @@
                 <button id="nav-trucks" class="nav-btn">トラックマスタ</button>
                 <button id="nav-drivers" class="nav-btn">ドライバーマスタ</button>
                 <button id="nav-customers" class="nav-btn">顧客マスタ</button>
+                <button id="nav-maintenance" class="nav-btn">メンテナンス</button>
                 <button id="nav-reports" class="nav-btn">統計・レポート</button>
                 <button id="nav-data" class="nav-btn">データ管理</button>
             </nav>
@@ -32,6 +33,11 @@
                 </div>
 
                 <div class="dashboard-container">
+                    <div class="notification-card notification-card-alert" style="grid-column: 1 / -1;">
+                        <h3>🔔 アラート・通知</h3>
+                        <div id="alerts-list"></div>
+                    </div>
+
                     <div class="notification-card notification-card-today">
                         <h3>📅 今日の配送</h3>
                         <div id="today-deliveries"></div>
@@ -184,6 +190,45 @@
                 </table>
             </section>
 
+            <!-- メンテナンス管理画面 -->
+            <section id="maintenance-section" class="section">
+                <div class="section-header">
+                    <h2>メンテナンス管理</h2>
+                    <button id="add-maintenance" class="btn-primary">+ 新規メンテナンス登録</button>
+                </div>
+                <div class="filter-bar">
+                    <input type="text" id="search-maintenance" placeholder="トラックNoで検索...">
+                    <select id="filter-maintenance-type">
+                        <option value="">全ての種類</option>
+                        <option value="車検">車検</option>
+                        <option value="定期点検">定期点検</option>
+                        <option value="オイル交換">オイル交換</option>
+                        <option value="タイヤ交換">タイヤ交換</option>
+                        <option value="整備">整備</option>
+                    </select>
+                    <select id="filter-maintenance-status">
+                        <option value="">全てのステータス</option>
+                        <option value="scheduled">予定</option>
+                        <option value="completed">完了</option>
+                    </select>
+                </div>
+                <table id="maintenance-table">
+                    <thead>
+                        <tr>
+                            <th>トラック</th>
+                            <th>メンテナンス種類</th>
+                            <th>実施日</th>
+                            <th>次回予定日</th>
+                            <th>費用</th>
+                            <th>内容</th>
+                            <th>ステータス</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="maintenance-list"></tbody>
+                </table>
+            </section>
+
             <!-- 顧客マスタ画面 -->
             <section id="customers-section" class="section">
                 <div class="section-header">
@@ -239,6 +284,28 @@
                     </div>
 
                     <div class="stats-card">
+                        <h3>💰 コスト分析</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-label">総燃料費</div>
+                                <div class="stat-value" id="total-fuel-cost">¥0</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">平均燃料費/配送</div>
+                                <div class="stat-value" id="avg-fuel-cost">¥0</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">総走行距離</div>
+                                <div class="stat-value" id="total-distance">0 km</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-label">平均距離/配送</div>
+                                <div class="stat-value" id="avg-distance">0 km</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stats-card">
                         <h3>🚚 トラック稼働率</h3>
                         <div id="truck-utilization"></div>
                     </div>
@@ -251,6 +318,11 @@
                     <div class="stats-card">
                         <h3>📅 月別配送推移（直近6ヶ月）</h3>
                         <div id="monthly-trend"></div>
+                    </div>
+
+                    <div class="stats-card">
+                        <h3>🚗 ドライバー稼働率（上位10名）</h3>
+                        <div id="driver-utilization"></div>
                     </div>
                 </div>
             </section>
@@ -499,6 +571,63 @@
         </div>
     </div>
 
+    <!-- メンテナンス登録モーダル -->
+    <div id="maintenance-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="maintenance-modal-title">新規メンテナンス登録</h2>
+            <form id="maintenance-form">
+                <input type="hidden" id="maintenance-id">
+                <div class="form-group">
+                    <label for="maintenance-truck-search">トラック *</label>
+                    <div class="searchable-select">
+                        <input type="text" id="maintenance-truck-search" placeholder="トラックを検索..." autocomplete="off">
+                        <input type="hidden" id="maintenance-truck" required>
+                        <div id="maintenance-truck-options" class="select-options"></div>
+                    </div>
+                    <div id="maintenance-truck-selected" class="selected-item"></div>
+                </div>
+                <div class="form-group">
+                    <label for="maintenance-type">メンテナンス種類 *</label>
+                    <select id="maintenance-type" required>
+                        <option value="車検">車検</option>
+                        <option value="定期点検">定期点検</option>
+                        <option value="オイル交換">オイル交換</option>
+                        <option value="タイヤ交換">タイヤ交換</option>
+                        <option value="整備">整備</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="maintenance-date">実施日</label>
+                    <input type="date" id="maintenance-date">
+                </div>
+                <div class="form-group">
+                    <label for="maintenance-next-date">次回予定日</label>
+                    <input type="date" id="maintenance-next-date">
+                </div>
+                <div class="form-group">
+                    <label for="maintenance-cost">費用 (円)</label>
+                    <input type="number" id="maintenance-cost" min="0">
+                </div>
+                <div class="form-group">
+                    <label for="maintenance-description">内容</label>
+                    <textarea id="maintenance-description" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="maintenance-status">ステータス *</label>
+                    <select id="maintenance-status" required>
+                        <option value="scheduled">予定</option>
+                        <option value="completed">完了</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancel-maintenance">キャンセル</button>
+                    <button type="submit" class="btn-primary">登録</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- 顧客登録モーダル -->
     <div id="customer-modal" class="modal">
         <div class="modal-content">
@@ -531,6 +660,83 @@
                     <button type="submit" class="btn-primary">登録</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- 配送指示書モーダル -->
+    <div id="delivery-instruction-modal" class="modal">
+        <div class="modal-content modal-content-large" id="delivery-instruction-content">
+            <span class="close">&times;</span>
+            <div class="instruction-sheet">
+                <div class="instruction-header">
+                    <h1>配送指示書</h1>
+                    <div class="instruction-info">
+                        <div>発行日: <span id="instruction-date"></span></div>
+                    </div>
+                </div>
+
+                <div class="instruction-section">
+                    <h3>配送情報</h3>
+                    <table class="instruction-table">
+                        <tr>
+                            <th>配送ID</th>
+                            <td id="instruction-delivery-id"></td>
+                            <th>出発日時</th>
+                            <td id="instruction-start"></td>
+                        </tr>
+                        <tr>
+                            <th>トラック</th>
+                            <td id="instruction-truck"></td>
+                            <th>到着予定日時</th>
+                            <td id="instruction-end"></td>
+                        </tr>
+                        <tr>
+                            <th>ドライバー</th>
+                            <td id="instruction-driver"></td>
+                            <th>ステータス</th>
+                            <td id="instruction-status"></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="instruction-section">
+                    <h3>顧客情報</h3>
+                    <table class="instruction-table">
+                        <tr>
+                            <th>顧客名</th>
+                            <td id="instruction-customer"></td>
+                        </tr>
+                        <tr>
+                            <th>住所</th>
+                            <td id="instruction-customer-address"></td>
+                        </tr>
+                        <tr>
+                            <th>電話番号</th>
+                            <td id="instruction-customer-phone"></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="instruction-section">
+                    <h3>配送ルート</h3>
+                    <div id="instruction-route"></div>
+                </div>
+
+                <div class="instruction-section">
+                    <h3>積載内容</h3>
+                    <div id="instruction-cargo"></div>
+                </div>
+
+                <div class="instruction-section">
+                    <h3>備考</h3>
+                    <div id="instruction-notes"></div>
+                </div>
+            </div>
+
+            <div class="form-actions no-print">
+                <button type="button" class="btn-secondary" id="close-instruction">閉じる</button>
+                <button type="button" class="btn-primary" id="print-instruction">🖨 印刷</button>
+            </div>
         </div>
     </div>
 
@@ -575,6 +781,10 @@
                 <div class="shortcut-item">
                     <div class="shortcut-key">Ctrl + C</div>
                     <div class="shortcut-desc">顧客マスタを開く</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Ctrl + M</div>
+                    <div class="shortcut-desc">メンテナンス管理を開く</div>
                 </div>
                 <div class="shortcut-item">
                     <div class="shortcut-key">Ctrl + R</div>

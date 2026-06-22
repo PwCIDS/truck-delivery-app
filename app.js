@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initTruckManagement();
     initDriverManagement();
     initCustomerManagement();
+    initMaintenanceManagement();
     initDataManagement();
     initReportsManagement();
     initKeyboardShortcuts();
@@ -26,6 +27,7 @@ function initNavigation() {
     document.getElementById('nav-trucks').addEventListener('click', () => switchSection('trucks'));
     document.getElementById('nav-drivers').addEventListener('click', () => switchSection('drivers'));
     document.getElementById('nav-customers').addEventListener('click', () => switchSection('customers'));
+    document.getElementById('nav-maintenance').addEventListener('click', () => switchSection('maintenance'));
     document.getElementById('nav-reports').addEventListener('click', () => switchSection('reports'));
     document.getElementById('nav-data').addEventListener('click', () => switchSection('data'));
 }
@@ -47,6 +49,8 @@ function switchSection(section) {
         loadDriversList();
     } else if (section === 'customers') {
         loadCustomersList();
+    } else if (section === 'maintenance') {
+        loadMaintenanceList();
     } else if (section === 'reports') {
         loadReportsView();
     } else if (section === 'data') {
@@ -105,6 +109,12 @@ function initDeliveryManagement() {
 
     const aiModal = document.getElementById('ai-suggestion-modal');
     aiModal.querySelector('.close').addEventListener('click', closeAISuggestionModal);
+
+    // 配送指示書
+    const instructionModal = document.getElementById('delivery-instruction-modal');
+    instructionModal.querySelector('.close').addEventListener('click', closeInstructionModal);
+    document.getElementById('close-instruction').addEventListener('click', closeInstructionModal);
+    document.getElementById('print-instruction').addEventListener('click', printInstruction);
 }
 
 function initSearchableSelect(fieldName, dataType) {
@@ -476,6 +486,7 @@ function loadListView() {
             <td><span class="status-badge status-${delivery.detailedStatus || delivery.status}">${detailedStatusText}</span></td>
             <td>
                 <button class="btn-edit" onclick="editDelivery(${delivery.id})">編集</button>
+                <button class="btn-secondary" onclick="printDeliveryInstruction(${delivery.id})" title="配送指示書">🖨</button>
                 <button class="btn-secondary" onclick="duplicateDelivery(${delivery.id})" title="複製">📋</button>
                 <button class="btn-danger" onclick="deleteDelivery(${delivery.id})">削除</button>
             </td>
@@ -966,6 +977,168 @@ function filterDrivers() {
     });
 }
 
+function initMaintenanceManagement() {
+    document.getElementById('add-maintenance').addEventListener('click', openMaintenanceModal);
+    document.getElementById('cancel-maintenance').addEventListener('click', closeMaintenanceModal);
+
+    const maintenanceModal = document.getElementById('maintenance-modal');
+    maintenanceModal.querySelector('.close').addEventListener('click', closeMaintenanceModal);
+
+    document.getElementById('maintenance-form').addEventListener('submit', handleMaintenanceSubmit);
+    document.getElementById('search-maintenance').addEventListener('input', filterMaintenances);
+    document.getElementById('filter-maintenance-type').addEventListener('change', filterMaintenances);
+    document.getElementById('filter-maintenance-status').addEventListener('change', filterMaintenances);
+
+    initSearchableSelect('maintenance-truck', 'trucks');
+}
+
+function loadMaintenanceList() {
+    const maintenances = db.getAllMaintenances();
+    const trucks = db.getAllTrucks();
+    const tbody = document.getElementById('maintenance-list');
+    tbody.innerHTML = '';
+
+    maintenances.sort((a, b) => {
+        if (a.status !== b.status) {
+            return a.status === 'scheduled' ? -1 : 1;
+        }
+        const dateA = new Date(a.nextDate || a.date || '9999-12-31');
+        const dateB = new Date(b.nextDate || b.date || '9999-12-31');
+        return dateA - dateB;
+    });
+
+    maintenances.forEach(maintenance => {
+        const truck = trucks.find(t => t.id === maintenance.truckId);
+        const statusText = maintenance.status === 'scheduled' ? '予定' : '完了';
+        const costDisplay = maintenance.cost ? `¥${maintenance.cost.toLocaleString()}` : '-';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${truck ? truck.number : '不明'}</td>
+            <td>${maintenance.type}</td>
+            <td>${maintenance.date || '-'}</td>
+            <td>${maintenance.nextDate || '-'}</td>
+            <td class="cost-value">${costDisplay}</td>
+            <td>${maintenance.description || '-'}</td>
+            <td><span class="status-badge status-${maintenance.status}">${statusText}</span></td>
+            <td>
+                <button class="btn-edit" onclick="editMaintenance(${maintenance.id})">編集</button>
+                <button class="btn-danger" onclick="deleteMaintenance(${maintenance.id})">削除</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function openMaintenanceModal() {
+    const modal = document.getElementById('maintenance-modal');
+    const form = document.getElementById('maintenance-form');
+    form.reset();
+
+    document.getElementById('maintenance-modal-title').textContent = '新規メンテナンス登録';
+    document.getElementById('maintenance-id').value = '';
+
+    clearSelection('maintenance-truck', 'trucks');
+
+    modal.classList.add('active');
+}
+
+function closeMaintenanceModal() {
+    document.getElementById('maintenance-modal').classList.remove('active');
+}
+
+function editMaintenance(id) {
+    const maintenance = db.getMaintenanceById(id);
+    if (!maintenance) return;
+
+    const modal = document.getElementById('maintenance-modal');
+    document.getElementById('maintenance-modal-title').textContent = 'メンテナンス編集';
+
+    document.getElementById('maintenance-id').value = maintenance.id;
+
+    const truck = db.getTruckById(maintenance.truckId);
+    if (truck) {
+        selectOption('maintenance-truck', 'trucks', truck);
+    }
+
+    document.getElementById('maintenance-type').value = maintenance.type;
+    document.getElementById('maintenance-date').value = maintenance.date || '';
+    document.getElementById('maintenance-next-date').value = maintenance.nextDate || '';
+    document.getElementById('maintenance-cost').value = maintenance.cost || '';
+    document.getElementById('maintenance-description').value = maintenance.description || '';
+    document.getElementById('maintenance-status').value = maintenance.status;
+
+    modal.classList.add('active');
+}
+
+function deleteMaintenance(id) {
+    if (confirm('このメンテナンス記録を削除しますか?')) {
+        db.deleteMaintenance(id);
+        loadMaintenanceList();
+    }
+}
+
+function handleMaintenanceSubmit(e) {
+    e.preventDefault();
+
+    const id = document.getElementById('maintenance-id').value;
+    const truckId = parseInt(document.getElementById('maintenance-truck').value);
+
+    if (!truckId) {
+        alert('トラックを選択してください。');
+        return;
+    }
+
+    const maintenanceData = {
+        truckId: truckId,
+        type: document.getElementById('maintenance-type').value,
+        date: document.getElementById('maintenance-date').value || null,
+        nextDate: document.getElementById('maintenance-next-date').value || null,
+        cost: document.getElementById('maintenance-cost').value ? parseInt(document.getElementById('maintenance-cost').value) : null,
+        description: document.getElementById('maintenance-description').value,
+        status: document.getElementById('maintenance-status').value
+    };
+
+    if (id) {
+        db.updateMaintenance(parseInt(id), maintenanceData);
+    } else {
+        db.addMaintenance(maintenanceData);
+    }
+
+    closeMaintenanceModal();
+    loadMaintenanceList();
+}
+
+function filterMaintenances() {
+    const searchText = document.getElementById('search-maintenance').value.toLowerCase();
+    const filterType = document.getElementById('filter-maintenance-type').value;
+    const filterStatus = document.getElementById('filter-maintenance-status').value;
+    const rows = document.querySelectorAll('#maintenance-list tr');
+
+    rows.forEach(row => {
+        const cells = row.cells;
+        const truckText = cells[0].textContent.toLowerCase();
+        const typeText = cells[1].textContent;
+        const statusElement = cells[6].querySelector('.status-badge');
+
+        let show = true;
+
+        if (searchText && !truckText.includes(searchText)) {
+            show = false;
+        }
+
+        if (filterType && typeText !== filterType) {
+            show = false;
+        }
+
+        if (filterStatus && !statusElement.classList.contains(`status-${filterStatus}`)) {
+            show = false;
+        }
+
+        row.style.display = show ? '' : 'none';
+    });
+}
+
 function initCustomerManagement() {
     document.getElementById('add-customer').addEventListener('click', openCustomerModal);
     document.getElementById('cancel-customer').addEventListener('click', closeCustomerModal);
@@ -1266,8 +1439,10 @@ function loadReportsView() {
     const deliveries = db.getAllDeliveries();
     const trucks = db.getAllTrucks();
     const customers = db.getAllCustomers();
+    const drivers = db.getAllDrivers();
+    const stats = db.getStatistics();
 
-    document.getElementById('total-deliveries').textContent = deliveries.length;
+    document.getElementById('total-deliveries').textContent = stats.totalDeliveries;
 
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -1278,15 +1453,19 @@ function loadReportsView() {
     });
     document.getElementById('month-deliveries').textContent = monthDeliveries.length;
 
-    const completedDeliveries = deliveries.filter(d => d.status === 'completed');
-    document.getElementById('completed-deliveries').textContent = completedDeliveries.length;
+    document.getElementById('completed-deliveries').textContent = stats.completedDeliveries;
+    document.getElementById('inprogress-deliveries').textContent = stats.inProgressDeliveries;
 
-    const inprogressDeliveries = deliveries.filter(d => d.status === 'inprogress');
-    document.getElementById('inprogress-deliveries').textContent = inprogressDeliveries.length;
+    // コスト統計
+    document.getElementById('total-fuel-cost').textContent = `¥${stats.totalFuelCost.toLocaleString()}`;
+    document.getElementById('avg-fuel-cost').textContent = `¥${stats.averageFuelCost.toLocaleString()}`;
+    document.getElementById('total-distance').textContent = `${stats.totalDistance.toLocaleString()} km`;
+    document.getElementById('avg-distance').textContent = `${stats.averageDistance} km`;
 
     loadTruckUtilization(deliveries, trucks);
     loadCustomerRanking(deliveries, customers);
     loadMonthlyTrend(deliveries);
+    loadDriverUtilization(deliveries, drivers);
 }
 
 function loadTruckUtilization(deliveries, trucks) {
@@ -1391,6 +1570,44 @@ function loadMonthlyTrend(deliveries) {
     });
 }
 
+function loadDriverUtilization(deliveries, drivers) {
+    const container = document.getElementById('driver-utilization');
+    container.innerHTML = '';
+
+    const driverStats = drivers.map(driver => {
+        const driverDeliveries = deliveries.filter(d => d.driverId === driver.id);
+        return {
+            driver,
+            count: driverDeliveries.length
+        };
+    });
+
+    driverStats.sort((a, b) => b.count - a.count);
+    const top10 = driverStats.slice(0, 10);
+
+    if (top10.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999;">データがありません</p>';
+        return;
+    }
+
+    const maxCount = Math.max(...top10.map(d => d.count), 1);
+
+    top10.forEach(stat => {
+        const percentage = (stat.count / maxCount) * 100;
+        const barHTML = `
+            <div class="chart-bar">
+                <div class="chart-label">${stat.driver.name} (${stat.driver.license})</div>
+                <div class="chart-bar-container">
+                    <div class="chart-bar-fill" style="width: ${percentage}%">
+                        <span class="chart-bar-value">${stat.count}件</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.innerHTML += barHTML;
+    });
+}
+
 function initReportsManagement() {
     document.getElementById('print-reports').addEventListener('click', () => {
         window.print();
@@ -1401,6 +1618,40 @@ function loadDashboard() {
     const deliveries = db.getAllDeliveries();
     const trucks = db.getAllTrucks();
     const customers = db.getAllCustomers();
+    const drivers = db.getAllDrivers();
+
+    // アラート表示
+    const alerts = db.generateAlerts();
+    const alertsContainer = document.getElementById('alerts-list');
+    alertsContainer.innerHTML = '';
+
+    if (alerts.length === 0) {
+        alertsContainer.innerHTML = '<div class="alert-empty">現在アラートはありません</div>';
+    } else {
+        alerts.slice(0, 5).forEach(alert => {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert-item priority-${alert.priority}`;
+            alertDiv.innerHTML = `
+                <div class="alert-message">${alert.message}</div>
+                <div class="alert-detail">${alert.detail}</div>
+            `;
+
+            if (alert.deliveryId) {
+                alertDiv.onclick = () => editDelivery(alert.deliveryId);
+            } else if (alert.maintenanceId) {
+                alertDiv.onclick = () => {
+                    switchSection('maintenance');
+                    setTimeout(() => editMaintenance(alert.maintenanceId), 300);
+                };
+            }
+
+            alertsContainer.appendChild(alertDiv);
+        });
+
+        if (alerts.length > 5) {
+            alertsContainer.innerHTML += `<div class="alert-detail" style="text-align: center; margin-top: 10px;">他 ${alerts.length - 5} 件のアラート</div>`;
+        }
+    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1624,6 +1875,7 @@ function sortDeliveries(field) {
             <td><span class="status-badge status-${delivery.detailedStatus || delivery.status}">${detailedStatusText}</span></td>
             <td>
                 <button class="btn-edit" onclick="editDelivery(${delivery.id})">編集</button>
+                <button class="btn-secondary" onclick="printDeliveryInstruction(${delivery.id})" title="配送指示書">🖨</button>
                 <button class="btn-secondary" onclick="duplicateDelivery(${delivery.id})" title="複製">📋</button>
                 <button class="btn-danger" onclick="deleteDelivery(${delivery.id})">削除</button>
             </td>
@@ -1689,6 +1941,10 @@ function initKeyboardShortcuts() {
                     e.preventDefault();
                     switchSection('customers');
                     break;
+                case 'm':
+                    e.preventDefault();
+                    switchSection('maintenance');
+                    break;
                 case 'r':
                     e.preventDefault();
                     switchSection('reports');
@@ -1704,6 +1960,8 @@ function initKeyboardShortcuts() {
                         openDriverModal();
                     } else if (activeSection.id === 'customers-section') {
                         openCustomerModal();
+                    } else if (activeSection.id === 'maintenance-section') {
+                        openMaintenanceModal();
                     }
                     break;
                 case 'p':
@@ -1723,8 +1981,10 @@ function initKeyboardShortcuts() {
             closeTruckModal();
             closeDriverModal();
             closeCustomerModal();
+            closeMaintenanceModal();
             closeShortcutsModal();
             closeAISuggestionModal();
+            closeInstructionModal();
         }
     });
 }
@@ -1735,6 +1995,86 @@ function openShortcutsModal() {
 
 function closeShortcutsModal() {
     document.getElementById('shortcuts-modal').classList.remove('active');
+}
+
+// 配送指示書印刷
+function printDeliveryInstruction(deliveryId) {
+    const delivery = db.getDeliveryById(deliveryId);
+    if (!delivery) return;
+
+    const truck = db.getTruckById(delivery.truckId);
+    const driver = db.getDriverById(delivery.driverId);
+    const customer = db.getCustomerById(delivery.customerId);
+
+    const modal = document.getElementById('delivery-instruction-modal');
+
+    // 日付
+    document.getElementById('instruction-date').textContent = new Date().toLocaleDateString('ja-JP');
+
+    // 配送情報
+    document.getElementById('instruction-delivery-id').textContent = `#${delivery.id}`;
+    document.getElementById('instruction-start').textContent = `${delivery.startDate} ${delivery.startTime}`;
+    document.getElementById('instruction-end').textContent = `${delivery.endDate} ${delivery.endTime}`;
+    document.getElementById('instruction-truck').textContent = truck ? `${truck.number} - ${truck.plate} (${truck.type})` : '未選択';
+    document.getElementById('instruction-driver').textContent = driver ? `${driver.name} (${driver.license}免許)` : '未選択';
+
+    const detailedStatusText = {
+        'preparing': '準備中',
+        'loading': '積込中',
+        'intransit': '配送中',
+        'unloading': '荷卸中',
+        'completed': '完了'
+    }[delivery.detailedStatus || delivery.status];
+    document.getElementById('instruction-status').textContent = detailedStatusText;
+
+    // 顧客情報
+    if (customer) {
+        document.getElementById('instruction-customer').textContent = customer.name;
+        document.getElementById('instruction-customer-address').textContent = customer.address;
+        document.getElementById('instruction-customer-phone').textContent = customer.phone;
+    } else {
+        document.getElementById('instruction-customer').textContent = '不明';
+        document.getElementById('instruction-customer-address').textContent = '-';
+        document.getElementById('instruction-customer-phone').textContent = '-';
+    }
+
+    // 配送ルート
+    const routeContainer = document.getElementById('instruction-route');
+    routeContainer.innerHTML = '';
+    if (delivery.destinations && delivery.destinations.length > 0) {
+        delivery.destinations.forEach((dest, index) => {
+            const routeDiv = document.createElement('div');
+            routeDiv.className = 'instruction-route-item';
+            routeDiv.innerHTML = `
+                <div class="route-number">${index + 1}</div>
+                <div style="flex: 1;">${dest}</div>
+                ${index < delivery.destinations.length - 1 ? '<div class="route-arrow">↓</div>' : ''}
+            `;
+            routeContainer.appendChild(routeDiv);
+        });
+    } else {
+        routeContainer.textContent = '行先が設定されていません';
+    }
+
+    // 積載内容
+    document.getElementById('instruction-cargo').textContent = delivery.cargo || '未記入';
+
+    // 備考
+    let notes = delivery.notes || 'なし';
+    if (delivery.distance) {
+        notes += `\n予定距離: ${delivery.distance}km`;
+    }
+    document.getElementById('instruction-notes').textContent = notes;
+
+    modal.classList.add('active');
+}
+
+function closeInstructionModal() {
+    document.getElementById('delivery-instruction-modal').classList.remove('active');
+}
+
+function printInstruction() {
+    window.print();
 }
 
 // AI提案機能
