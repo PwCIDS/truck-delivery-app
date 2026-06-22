@@ -1,9 +1,20 @@
 class Database {
     constructor() {
+        this.dataVersion = '2.0'; // データバージョン
+        this.checkAndResetData();
         this.deliveries = this.loadData('deliveries') || [];
         this.trucks = this.loadData('trucks') || [];
         this.customers = this.loadData('customers') || [];
         this.initSampleData();
+    }
+
+    checkAndResetData() {
+        const currentVersion = localStorage.getItem('dataVersion');
+        if (currentVersion !== this.dataVersion) {
+            console.log('新しいデータバージョンを検出しました。データをリセットします。');
+            localStorage.clear();
+            localStorage.setItem('dataVersion', this.dataVersion);
+        }
     }
 
     loadData(key) {
