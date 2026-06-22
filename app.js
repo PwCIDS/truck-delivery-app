@@ -277,85 +277,112 @@ function loadCalendarView() {
     const trucks = db.getAllTrucks();
     const deliveries = db.getAllDeliveries();
 
-    let html = '<table class="calendar-table"><thead><tr><th>トラック</th>';
-
-    for (let day = 1; day <= daysInMonth; day++) {
-        const date = new Date(year, month, day);
-        const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
-        html += `<th>${day}日<br>(${dayOfWeek})</th>`;
+    // トラックを1列に10台ずつ表示
+    const trucksPerRow = 10;
+    const truckGroups = [];
+    for (let i = 0; i < trucks.length; i += trucksPerRow) {
+        truckGroups.push(trucks.slice(i, i + trucksPerRow));
     }
 
-    html += '</tr></thead><tbody>';
+    let html = '';
 
-    trucks.forEach(truck => {
-        html += `<tr><td class="truck-header">${truck.number}<br>${truck.plate}<br><span class="truck-type-badge type-${truck.type || '配達'}">${truck.type || '配達'}</span></td>`;
+    // 各トラックグループごとにテーブルを作成
+    truckGroups.forEach((truckGroup, groupIndex) => {
+        html += '<table class="calendar-table"><thead><tr><th class="date-header">日付</th>';
 
+        // トラックヘッダー（横）
+        truckGroup.forEach(truck => {
+            html += `<th class="truck-header-new">
+                <div class="truck-info-compact">
+                    <div class="truck-number">${truck.number}</div>
+                    <div class="truck-plate">${truck.plate}</div>
+                    <span class="truck-type-badge type-${truck.type || '配達'}">${truck.type || '配達'}</span>
+                </div>
+            </th>`;
+        });
+
+        html += '</tr></thead><tbody>';
+
+        // 日付行（縦）
         for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month, day);
+            const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dayClass = dayOfWeek === '日' ? 'sunday' : dayOfWeek === '土' ? 'saturday' : '';
 
-            const deliveriesOnDate = deliveries.filter(d => {
-                if (d.truckId !== truck.id) return false;
+            html += `<tr><td class="date-cell ${dayClass}">${day}日<br>(${dayOfWeek})</td>`;
 
-                const startDate = new Date(d.startDate);
-                const endDate = new Date(d.endDate);
-                const currentDate = new Date(dateStr);
+            // 各トラックのセル
+            truckGroup.forEach(truck => {
+                const deliveriesOnDate = deliveries.filter(d => {
+                    if (d.truckId !== truck.id) return false;
 
-                return currentDate >= startDate && currentDate <= endDate;
+                    const startDate = new Date(d.startDate);
+                    const endDate = new Date(d.endDate);
+                    const currentDate = new Date(dateStr);
+
+                    return currentDate >= startDate && currentDate <= endDate;
+                });
+
+                if (deliveriesOnDate.length > 0) {
+                    const delivery = deliveriesOnDate[0];
+                    const customer = db.getCustomerById(delivery.customerId);
+                    const destText = delivery.destinations ? delivery.destinations[0] : '';
+                    html += `<td class="calendar-cell occupied" onclick="editDelivery(${delivery.id})" title="${customer ? customer.name : ''} - ${destText}">
+                        <div class="delivery-info-compact">
+                            <div class="delivery-customer-short">${customer ? customer.name.substring(0, 8) : ''}</div>
+                        </div>
+                    </td>`;
+                } else {
+                    html += `<td class="calendar-cell" onclick="addDeliveryForDate('${dateStr}', ${truck.id})"></td>`;
+                }
             });
 
-            if (deliveriesOnDate.length > 0) {
-                const delivery = deliveriesOnDate[0];
-                const customer = db.getCustomerById(delivery.customerId);
-                const destText = delivery.destinations ? delivery.destinations[0] : '';
-                html += `<td class="calendar-cell occupied" onclick="editDelivery(${delivery.id})">
-                    <div class="delivery-info">
-                        <div>${customer ? customer.name : ''}</div>
-                        <div>${destText}</div>
-                    </div>
-                </td>`;
-            } else {
-                html += `<td class="calendar-cell" onclick="addDeliveryForDate('${dateStr}', ${truck.id})"></td>`;
-            }
+            html += '</tr>';
         }
 
-        html += '</tr>';
+        html += '</tbody></table>';
+
+        // グループ間の区切り
+        if (groupIndex < truckGroups.length - 1) {
+            html += '<div class="calendar-separator"></div>';
+        }
     });
 
     // トラック未選択の配送を表示
     const unassignedDeliveries = deliveries.filter(d => !d.truckId);
     if (unassignedDeliveries.length > 0) {
-        html += `<tr><td class="truck-header" style="background-color: #e74c3c;">未選択配送</td>`;
+        html += '<div class="unassigned-section">';
+        html += '<h3 class="unassigned-title">⚠️ トラック未選択の配送</h3>';
+        html += '<div class="unassigned-list">';
 
-        for (let day = 1; day <= daysInMonth; day++) {
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const unassignedByDate = {};
+        unassignedDeliveries.forEach(delivery => {
+            const dateStr = delivery.startDate;
+            if (!unassignedByDate[dateStr]) {
+                unassignedByDate[dateStr] = [];
+            }
+            unassignedByDate[dateStr].push(delivery);
+        });
 
-            const deliveriesOnDate = unassignedDeliveries.filter(d => {
-                const startDate = new Date(d.startDate);
-                const endDate = new Date(d.endDate);
-                const currentDate = new Date(dateStr);
-
-                return currentDate >= startDate && currentDate <= endDate;
-            });
-
-            if (deliveriesOnDate.length > 0) {
-                const delivery = deliveriesOnDate[0];
+        Object.keys(unassignedByDate).sort().forEach(dateStr => {
+            const deliveriesOnDate = unassignedByDate[dateStr];
+            html += `<div class="unassigned-date-group">`;
+            html += `<div class="unassigned-date">${dateStr}</div>`;
+            deliveriesOnDate.forEach(delivery => {
                 const customer = db.getCustomerById(delivery.customerId);
                 const destText = delivery.destinations ? delivery.destinations[0] : '';
-                html += `<td class="calendar-cell" style="background-color: #fadbd8; cursor: pointer;" onclick="editDelivery(${delivery.id})">
-                    <div class="delivery-info" style="color: #333;">
-                        <div>${customer ? customer.name : ''}</div>
-                        <div>${destText}</div>
-                    </div>
-                </td>`;
-            } else {
-                html += `<td class="calendar-cell"></td>`;
-            }
-        }
+                html += `<div class="unassigned-item" onclick="editDelivery(${delivery.id})">
+                    <div class="unassigned-time">${delivery.startTime} - ${delivery.endTime}</div>
+                    <div class="unassigned-customer">${customer ? customer.name : ''}</div>
+                    <div class="unassigned-dest">${destText}</div>
+                </div>`;
+            });
+            html += `</div>`;
+        });
 
-        html += '</tr>';
+        html += '</div></div>';
     }
-
-    html += '</tbody></table>';
 
     document.getElementById('calendar-matrix').innerHTML = html;
 }
