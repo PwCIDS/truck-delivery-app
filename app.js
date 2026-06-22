@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initNavigation();
     initDeliveryManagement();
     initTruckManagement();
+    initDriverManagement();
     initCustomerManagement();
     initDataManagement();
     initReportsManagement();
@@ -23,6 +24,7 @@ function initNavigation() {
     document.getElementById('nav-dashboard').addEventListener('click', () => switchSection('dashboard'));
     document.getElementById('nav-delivery').addEventListener('click', () => switchSection('delivery'));
     document.getElementById('nav-trucks').addEventListener('click', () => switchSection('trucks'));
+    document.getElementById('nav-drivers').addEventListener('click', () => switchSection('drivers'));
     document.getElementById('nav-customers').addEventListener('click', () => switchSection('customers'));
     document.getElementById('nav-reports').addEventListener('click', () => switchSection('reports'));
     document.getElementById('nav-data').addEventListener('click', () => switchSection('data'));
@@ -41,6 +43,8 @@ function switchSection(section) {
         loadDeliveryView();
     } else if (section === 'trucks') {
         loadTrucksList();
+    } else if (section === 'drivers') {
+        loadDriversList();
     } else if (section === 'customers') {
         loadCustomersList();
     } else if (section === 'reports') {
@@ -92,10 +96,12 @@ function initDeliveryManagement() {
 
     initSearchableSelect('delivery-truck', 'trucks');
     initSearchableSelect('delivery-customer', 'customers');
+    initSearchableSelect('delivery-driver', 'drivers');
 
     document.getElementById('ai-suggest-truck').addEventListener('click', openAISuggestionModal);
+    document.getElementById('ai-suggest-driver').addEventListener('click', openAIDriverSuggestionModal);
     document.getElementById('cancel-ai-suggestion').addEventListener('click', closeAISuggestionModal);
-    document.getElementById('confirm-ai-suggestion').addEventListener('click', confirmAISuggestion);
+    document.getElementById('confirm-ai-suggestion').addEventListener('click', confirmAISuggestionGeneric);
 
     const aiModal = document.getElementById('ai-suggestion-modal');
     aiModal.querySelector('.close').addEventListener('click', closeAISuggestionModal);
@@ -131,6 +137,8 @@ function showOptions(fieldName, dataType, query) {
         items = db.getAllTrucks();
     } else if (dataType === 'customers') {
         items = db.getAllCustomers();
+    } else if (dataType === 'drivers') {
+        items = db.getAllDrivers();
     }
 
     const filtered = items.filter(item => {
@@ -141,6 +149,9 @@ function showOptions(fieldName, dataType, query) {
             return item.name.toLowerCase().includes(query) ||
                    item.code.toLowerCase().includes(query) ||
                    (item.address && item.address.toLowerCase().includes(query));
+        } else if (dataType === 'drivers') {
+            return item.name.toLowerCase().includes(query) ||
+                   item.code.toLowerCase().includes(query);
         }
         return false;
     });
@@ -154,6 +165,8 @@ function showOptions(fieldName, dataType, query) {
             div.innerHTML = `${item.number} - ${item.plate} (${item.capacity}kg) <span class="truck-type-badge type-${item.type || '配達'}">${item.type || '配達'}</span>`;
         } else if (dataType === 'customers') {
             div.textContent = `${item.code} - ${item.name}`;
+        } else if (dataType === 'drivers') {
+            div.innerHTML = `${item.code} - ${item.name} (${item.license}免許)`;
         }
 
         div.addEventListener('click', () => selectOption(fieldName, dataType, item));
@@ -181,6 +194,12 @@ function selectOption(fieldName, dataType, item) {
         searchInput.value = '';
         selectedDiv.innerHTML = `
             <span>${item.code} - ${item.name}</span>
+            <button type="button" class="remove-btn" onclick="clearSelection('${fieldName}', '${dataType}')">&times;</button>
+        `;
+    } else if (dataType === 'drivers') {
+        searchInput.value = '';
+        selectedDiv.innerHTML = `
+            <span>${item.code} - ${item.name} (${item.license}免許)</span>
             <button type="button" class="remove-btn" onclick="clearSelection('${fieldName}', '${dataType}')">&times;</button>
         `;
     }
@@ -391,6 +410,7 @@ function loadListView() {
     const deliveries = db.getAllDeliveries();
     const trucks = db.getAllTrucks();
     const customers = db.getAllCustomers();
+    const drivers = db.getAllDrivers();
 
     const filterTruckSelect = document.getElementById('filter-truck');
     filterTruckSelect.innerHTML = '<option value="">全てのトラック</option>';
@@ -416,12 +436,15 @@ function loadListView() {
     deliveries.forEach(delivery => {
         const truck = trucks.find(t => t.id === delivery.truckId);
         const customer = customers.find(c => c.id === delivery.customerId);
+        const driver = drivers.find(d => d.id === delivery.driverId);
 
-        const statusText = {
-            'scheduled': '予定',
-            'inprogress': '運転中',
+        const detailedStatusText = {
+            'preparing': '準備中',
+            'loading': '積込中',
+            'intransit': '配送中',
+            'unloading': '荷卸中',
             'completed': '完了'
-        }[delivery.status];
+        }[delivery.detailedStatus || delivery.status];
 
         const destText = delivery.destinations ? delivery.destinations.join(' → ') : '';
         const startDateTime = `${delivery.startDate} ${delivery.startTime}`;
@@ -434,15 +457,23 @@ function loadListView() {
             truckDisplay = '<span class="truck-not-assigned">未選択</span>';
         }
 
+        let driverDisplay = '';
+        if (driver) {
+            driverDisplay = driver.name;
+        } else {
+            driverDisplay = '<span class="truck-not-assigned">未選択</span>';
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${startDateTime}</td>
             <td>${endDateTime}</td>
             <td>${truckDisplay}</td>
+            <td>${driverDisplay}</td>
             <td>${customer ? customer.name : ''}</td>
             <td>${destText}</td>
             <td>${delivery.cargo}</td>
-            <td><span class="status-badge status-${delivery.status}">${statusText}</span></td>
+            <td><span class="status-badge status-${delivery.detailedStatus || delivery.status}">${detailedStatusText}</span></td>
             <td>
                 <button class="btn-edit" onclick="editDelivery(${delivery.id})">編集</button>
                 <button class="btn-secondary" onclick="duplicateDelivery(${delivery.id})" title="複製">📋</button>
@@ -527,6 +558,7 @@ function openDeliveryModal(prefilledData = {}) {
 
     clearSelection('delivery-truck', 'trucks');
     clearSelection('delivery-customer', 'customers');
+    clearSelection('delivery-driver', 'drivers');
 
     if (prefilledData.startDate) {
         document.getElementById('delivery-start-date').value = prefilledData.startDate;
@@ -571,11 +603,20 @@ function editDelivery(id) {
     const truck = db.getTruckById(delivery.truckId);
     if (truck) {
         selectOption('delivery-truck', 'trucks', truck);
+    } else {
+        clearSelection('delivery-truck', 'trucks');
     }
 
     const customer = db.getCustomerById(delivery.customerId);
     if (customer) {
         selectOption('delivery-customer', 'customers', customer);
+    }
+
+    const driver = db.getDriverById(delivery.driverId);
+    if (driver) {
+        selectOption('delivery-driver', 'drivers', driver);
+    } else {
+        clearSelection('delivery-driver', 'drivers');
     }
 
     document.getElementById('delivery-start-date').value = delivery.startDate;
@@ -606,6 +647,8 @@ function handleDeliverySubmit(e) {
     const id = document.getElementById('delivery-id').value;
     const truckIdValue = document.getElementById('delivery-truck').value;
     const truckId = truckIdValue ? parseInt(truckIdValue) : null;
+    const driverIdValue = document.getElementById('delivery-driver').value;
+    const driverId = driverIdValue ? parseInt(driverIdValue) : null;
     const customerId = parseInt(document.getElementById('delivery-customer').value);
     const startDate = document.getElementById('delivery-start-date').value;
     const startTime = document.getElementById('delivery-start-time').value;
@@ -640,8 +683,18 @@ function handleDeliverySubmit(e) {
         }
     }
 
+    if (driverId) {
+        const isAvailable = db.isDriverAvailable(driverId, startDate, startTime, endDate, endTime, id ? parseInt(id) : null);
+
+        if (!isAvailable) {
+            alert('選択したドライバーは指定の日時で既に配送が入っています。別のドライバーまたは時間を選択してください。');
+            return;
+        }
+    }
+
     const deliveryData = {
         truckId,
+        driverId,
         customerId,
         startDate,
         startTime,
@@ -760,6 +813,157 @@ function handleTruckSubmit(e) {
 
     closeTruckModal();
     loadTrucksList();
+}
+
+function initDriverManagement() {
+    document.getElementById('add-driver').addEventListener('click', openDriverModal);
+    document.getElementById('cancel-driver').addEventListener('click', closeDriverModal);
+
+    const driverModal = document.getElementById('driver-modal');
+    driverModal.querySelector('.close').addEventListener('click', closeDriverModal);
+
+    document.getElementById('driver-form').addEventListener('submit', handleDriverSubmit);
+    document.getElementById('search-driver').addEventListener('input', filterDrivers);
+    document.getElementById('filter-driver-license').addEventListener('change', filterDrivers);
+}
+
+function loadDriversList() {
+    const drivers = db.getAllDrivers();
+    const tbody = document.getElementById('drivers-list');
+    tbody.innerHTML = '';
+
+    drivers.forEach(driver => {
+        const skillsHtml = driver.specialSkills && driver.specialSkills.length > 0
+            ? driver.specialSkills.map(skill => `<span class="skill-badge">${skill}</span>`).join(' ')
+            : '-';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${driver.code}</td>
+            <td>${driver.name}</td>
+            <td>${driver.age}歳</td>
+            <td>${driver.license}</td>
+            <td>${driver.experience}年</td>
+            <td><div class="driver-skills">${skillsHtml}</div></td>
+            <td>${driver.phone}</td>
+            <td><span class="status-badge status-${driver.status}">${driver.status === 'available' ? '利用可能' : '配送中'}</span></td>
+            <td>
+                <button class="btn-edit" onclick="editDriver(${driver.id})">編集</button>
+                <button class="btn-danger" onclick="deleteDriver(${driver.id})">削除</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function openDriverModal() {
+    const modal = document.getElementById('driver-modal');
+    const form = document.getElementById('driver-form');
+    form.reset();
+
+    document.getElementById('driver-modal-title').textContent = '新規ドライバー登録';
+    document.getElementById('driver-id').value = '';
+
+    // チェックボックスをクリア
+    document.querySelectorAll('#driver-form input[type="checkbox"]').forEach(cb => cb.checked = false);
+
+    modal.classList.add('active');
+}
+
+function closeDriverModal() {
+    document.getElementById('driver-modal').classList.remove('active');
+}
+
+function editDriver(id) {
+    const driver = db.getDriverById(id);
+    if (!driver) return;
+
+    const modal = document.getElementById('driver-modal');
+    document.getElementById('driver-modal-title').textContent = 'ドライバー編集';
+
+    document.getElementById('driver-id').value = driver.id;
+    document.getElementById('driver-code').value = driver.code;
+    document.getElementById('driver-name').value = driver.name;
+    document.getElementById('driver-age').value = driver.age;
+    document.getElementById('driver-license').value = driver.license;
+    document.getElementById('driver-experience').value = driver.experience;
+    document.getElementById('driver-phone').value = driver.phone;
+    document.getElementById('driver-hire-date').value = driver.hireDate;
+
+    // スキルのチェックボックスを設定
+    document.querySelectorAll('#driver-form input[type="checkbox"]').forEach(cb => {
+        cb.checked = driver.specialSkills && driver.specialSkills.includes(cb.value);
+    });
+
+    modal.classList.add('active');
+}
+
+function deleteDriver(id) {
+    if (confirm('このドライバーを削除しますか? 配送記録がある場合は削除できません。')) {
+        const result = db.deleteDriver(id);
+        if (result) {
+            loadDriversList();
+        } else {
+            alert('このドライバーには配送記録があるため削除できません。');
+        }
+    }
+}
+
+function handleDriverSubmit(e) {
+    e.preventDefault();
+
+    const id = document.getElementById('driver-id').value;
+
+    // スキルを取得
+    const specialSkills = [];
+    document.querySelectorAll('#driver-form input[type="checkbox"]:checked').forEach(cb => {
+        specialSkills.push(cb.value);
+    });
+
+    const driverData = {
+        code: document.getElementById('driver-code').value,
+        name: document.getElementById('driver-name').value,
+        age: parseInt(document.getElementById('driver-age').value),
+        license: document.getElementById('driver-license').value,
+        experience: parseInt(document.getElementById('driver-experience').value),
+        phone: document.getElementById('driver-phone').value,
+        hireDate: document.getElementById('driver-hire-date').value,
+        specialSkills: specialSkills
+    };
+
+    if (id) {
+        db.updateDriver(parseInt(id), driverData);
+    } else {
+        db.addDriver(driverData);
+    }
+
+    closeDriverModal();
+    loadDriversList();
+}
+
+function filterDrivers() {
+    const searchText = document.getElementById('search-driver').value.toLowerCase();
+    const filterLicense = document.getElementById('filter-driver-license').value;
+    const rows = document.querySelectorAll('#drivers-list tr');
+
+    rows.forEach(row => {
+        const cells = row.cells;
+        const codeText = cells[0].textContent.toLowerCase();
+        const nameText = cells[1].textContent.toLowerCase();
+        const licenseText = cells[3].textContent;
+
+        let show = true;
+
+        if (searchText && !codeText.includes(searchText) && !nameText.includes(searchText)) {
+            show = false;
+        }
+
+        if (filterLicense && !licenseText.includes(filterLicense)) {
+            show = false;
+        }
+
+        row.style.display = show ? '' : 'none';
+    });
 }
 
 function initCustomerManagement() {
@@ -1375,16 +1579,20 @@ function sortDeliveries(field) {
 
     const trucks = db.getAllTrucks();
     const customers = db.getAllCustomers();
+    const drivers = db.getAllDrivers();
 
     deliveries.forEach(delivery => {
         const truck = trucks.find(t => t.id === delivery.truckId);
         const customer = customers.find(c => c.id === delivery.customerId);
+        const driver = drivers.find(d => d.id === delivery.driverId);
 
-        const statusText = {
-            'scheduled': '予定',
-            'inprogress': '運転中',
+        const detailedStatusText = {
+            'preparing': '準備中',
+            'loading': '積込中',
+            'intransit': '配送中',
+            'unloading': '荷卸中',
             'completed': '完了'
-        }[delivery.status];
+        }[delivery.detailedStatus || delivery.status];
 
         const destText = delivery.destinations ? delivery.destinations.join(' → ') : '';
         const startDateTime = `${delivery.startDate} ${delivery.startTime}`;
@@ -1397,15 +1605,23 @@ function sortDeliveries(field) {
             truckDisplay = '<span class="truck-not-assigned">未選択</span>';
         }
 
+        let driverDisplay = '';
+        if (driver) {
+            driverDisplay = driver.name;
+        } else {
+            driverDisplay = '<span class="truck-not-assigned">未選択</span>';
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${startDateTime}</td>
             <td>${endDateTime}</td>
             <td>${truckDisplay}</td>
+            <td>${driverDisplay}</td>
             <td>${customer ? customer.name : ''}</td>
             <td>${destText}</td>
             <td>${delivery.cargo}</td>
-            <td><span class="status-badge status-${delivery.status}">${statusText}</span></td>
+            <td><span class="status-badge status-${delivery.detailedStatus || delivery.status}">${detailedStatusText}</span></td>
             <td>
                 <button class="btn-edit" onclick="editDelivery(${delivery.id})">編集</button>
                 <button class="btn-secondary" onclick="duplicateDelivery(${delivery.id})" title="複製">📋</button>
@@ -1465,6 +1681,10 @@ function initKeyboardShortcuts() {
                     e.preventDefault();
                     switchSection('trucks');
                     break;
+                case 'i':
+                    e.preventDefault();
+                    switchSection('drivers');
+                    break;
                 case 'c':
                     e.preventDefault();
                     switchSection('customers');
@@ -1480,6 +1700,8 @@ function initKeyboardShortcuts() {
                         openDeliveryModal();
                     } else if (activeSection.id === 'trucks-section') {
                         openTruckModal();
+                    } else if (activeSection.id === 'drivers-section') {
+                        openDriverModal();
                     } else if (activeSection.id === 'customers-section') {
                         openCustomerModal();
                     }
@@ -1499,6 +1721,7 @@ function initKeyboardShortcuts() {
         if (e.key === 'Escape') {
             closeDeliveryModal();
             closeTruckModal();
+            closeDriverModal();
             closeCustomerModal();
             closeShortcutsModal();
             closeAISuggestionModal();
@@ -1594,5 +1817,99 @@ function confirmAISuggestion() {
     }
 
     selectOption('delivery-truck', 'trucks', aiSuggestedTruck);
+    closeAISuggestionModal();
+}
+
+// AIドライバー提案機能
+function openAIDriverSuggestionModal() {
+    const startDate = document.getElementById('delivery-start-date').value;
+    const startTime = document.getElementById('delivery-start-time').value;
+    const endDate = document.getElementById('delivery-end-date').value;
+    const endTime = document.getElementById('delivery-end-time').value;
+
+    if (!startDate || !startTime || !endDate || !endTime) {
+        alert('出発日時と到着日時を入力してください。');
+        return;
+    }
+
+    const modal = document.getElementById('ai-suggestion-modal');
+    const contentDiv = document.getElementById('ai-suggestion-content');
+    const listDiv = document.getElementById('ai-suggestion-list');
+    const confirmBtn = document.getElementById('confirm-ai-suggestion');
+
+    contentDiv.innerHTML = '<p>指定された日時で利用可能なドライバーを探しています...</p>';
+    listDiv.innerHTML = '';
+    confirmBtn.style.display = 'none';
+    aiSuggestedTruck = null; // ドライバー用に再利用
+
+    modal.classList.add('active');
+
+    // AIシミュレーション
+    setTimeout(() => {
+        const deliveryId = document.getElementById('delivery-id').value;
+        const availableDrivers = db.findAvailableDrivers(
+            startDate,
+            startTime,
+            endDate,
+            endTime,
+            deliveryId ? parseInt(deliveryId) : null
+        );
+
+        if (availableDrivers.length === 0) {
+            contentDiv.innerHTML = '<p style="color: #e74c3c;">指定された日時で利用可能なドライバーが見つかりませんでした。</p>';
+        } else {
+            contentDiv.innerHTML = `<p style="color: #27ae60;">✓ ${availableDrivers.length}名の利用可能なドライバーが見つかりました。</p>`;
+
+            availableDrivers.forEach(driver => {
+                const div = document.createElement('div');
+                div.className = 'ai-suggestion-item';
+
+                const skillsHtml = driver.specialSkills && driver.specialSkills.length > 0
+                    ? driver.specialSkills.map(skill => `<span class="skill-badge" style="font-size: 10px; padding: 2px 6px;">${skill}</span>`).join(' ')
+                    : 'なし';
+
+                div.innerHTML = `
+                    <div class="ai-suggestion-header">
+                        <span class="ai-suggestion-truck-number">${driver.code} - ${driver.name}</span>
+                        <span class="ai-suggestion-truck-type">${driver.license}免許</span>
+                    </div>
+                    <div class="ai-suggestion-details">
+                        年齢: ${driver.age}歳 | 経験: ${driver.experience}年 | 電話: ${driver.phone}
+                    </div>
+                    <div class="ai-suggestion-details" style="margin-top: 5px;">
+                        特殊スキル: ${skillsHtml}
+                    </div>
+                `;
+
+                div.addEventListener('click', () => {
+                    document.querySelectorAll('.ai-suggestion-item').forEach(item => {
+                        item.classList.remove('selected');
+                    });
+                    div.classList.add('selected');
+                    aiSuggestedTruck = driver; // 再利用
+                    confirmBtn.style.display = 'inline-block';
+                });
+
+                listDiv.appendChild(div);
+            });
+        }
+    }, 800);
+}
+
+// 確定ボタンを修正（ドライバーとトラック両対応）
+function confirmAISuggestionGeneric() {
+    if (!aiSuggestedTruck) {
+        alert('選択してください。');
+        return;
+    }
+
+    // ドライバーかトラックか判定
+    if (aiSuggestedTruck.license) {
+        // ドライバー
+        selectOption('delivery-driver', 'drivers', aiSuggestedTruck);
+    } else {
+        // トラック
+        selectOption('delivery-truck', 'trucks', aiSuggestedTruck);
+    }
     closeAISuggestionModal();
 }

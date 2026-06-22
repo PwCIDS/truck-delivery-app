@@ -17,6 +17,7 @@
                 <button id="nav-dashboard" class="nav-btn active">ダッシュボード</button>
                 <button id="nav-delivery" class="nav-btn">配送管理</button>
                 <button id="nav-trucks" class="nav-btn">トラックマスタ</button>
+                <button id="nav-drivers" class="nav-btn">ドライバーマスタ</button>
                 <button id="nav-customers" class="nav-btn">顧客マスタ</button>
                 <button id="nav-reports" class="nav-btn">統計・レポート</button>
                 <button id="nav-data" class="nav-btn">データ管理</button>
@@ -112,10 +113,11 @@
                                 <th class="sortable" data-sort="startDate">出発日時 <span class="sort-icon">↕</span></th>
                                 <th class="sortable" data-sort="endDate">到着日時 <span class="sort-icon">↕</span></th>
                                 <th>トラック</th>
+                                <th>ドライバー</th>
                                 <th>顧客</th>
                                 <th>行先</th>
                                 <th>積載内容</th>
-                                <th class="sortable" data-sort="status">ステータス <span class="sort-icon">↕</span></th>
+                                <th>詳細ステータス</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
@@ -146,6 +148,39 @@
                         </tr>
                     </thead>
                     <tbody id="trucks-list"></tbody>
+                </table>
+            </section>
+
+            <!-- ドライバーマスタ画面 -->
+            <section id="drivers-section" class="section">
+                <div class="section-header">
+                    <h2>ドライバーマスタ</h2>
+                    <button id="add-driver" class="btn-primary">+ 新規ドライバー登録</button>
+                </div>
+                <div class="filter-bar">
+                    <input type="text" id="search-driver" placeholder="ドライバーコード、氏名で検索...">
+                    <select id="filter-driver-license">
+                        <option value="">全ての免許</option>
+                        <option value="大型">大型</option>
+                        <option value="中型">中型</option>
+                        <option value="準中型">準中型</option>
+                    </select>
+                </div>
+                <table id="drivers-table">
+                    <thead>
+                        <tr>
+                            <th>ドライバーコード</th>
+                            <th>氏名</th>
+                            <th>年齢</th>
+                            <th>免許</th>
+                            <th>経験年数</th>
+                            <th>特殊スキル</th>
+                            <th>電話番号</th>
+                            <th>ステータス</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="drivers-list"></tbody>
                 </table>
             </section>
 
@@ -296,6 +331,18 @@
                     <div id="delivery-customer-selected" class="selected-item"></div>
                 </div>
 
+                <!-- ドライバー検索 -->
+                <div class="form-group">
+                    <label for="delivery-driver-search">ドライバー</label>
+                    <div class="searchable-select">
+                        <input type="text" id="delivery-driver-search" placeholder="ドライバーを検索..." autocomplete="off">
+                        <input type="hidden" id="delivery-driver">
+                        <div id="delivery-driver-options" class="select-options"></div>
+                    </div>
+                    <div id="delivery-driver-selected" class="selected-item"></div>
+                    <button type="button" id="ai-suggest-driver" class="btn-ai" style="margin-top: 10px;">🤖 AIで空きドライバーを提案</button>
+                </div>
+
                 <!-- 出発日時 -->
                 <div class="form-group">
                     <label>出発日時 *</label>
@@ -393,6 +440,65 @@
         </div>
     </div>
 
+    <!-- ドライバー登録モーダル -->
+    <div id="driver-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="driver-modal-title">新規ドライバー登録</h2>
+            <form id="driver-form">
+                <input type="hidden" id="driver-id">
+                <div class="form-group">
+                    <label for="driver-code">ドライバーコード *</label>
+                    <input type="text" id="driver-code" required>
+                </div>
+                <div class="form-group">
+                    <label for="driver-name">氏名 *</label>
+                    <input type="text" id="driver-name" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="driver-age">年齢 *</label>
+                        <input type="number" id="driver-age" min="18" max="70" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="driver-license">免許種別 *</label>
+                        <select id="driver-license" required>
+                            <option value="大型">大型</option>
+                            <option value="中型">中型</option>
+                            <option value="準中型">準中型</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="driver-experience">経験年数 *</label>
+                    <input type="number" id="driver-experience" min="0" max="50" required>
+                </div>
+                <div class="form-group">
+                    <label for="driver-phone">電話番号 *</label>
+                    <input type="tel" id="driver-phone" placeholder="例: 090-1234-5678" required>
+                </div>
+                <div class="form-group">
+                    <label for="driver-hire-date">入社日 *</label>
+                    <input type="date" id="driver-hire-date" required>
+                </div>
+                <div class="form-group">
+                    <label>特殊スキル</label>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" id="skill-refrigerated" value="保冷車運転"> 保冷車運転</label>
+                        <label><input type="checkbox" id="skill-livefish" value="活魚車運転"> 活魚車運転</label>
+                        <label><input type="checkbox" id="skill-longdistance" value="長距離運転"> 長距離運転</label>
+                        <label><input type="checkbox" id="skill-forklift" value="フォークリフト"> フォークリフト</label>
+                        <label><input type="checkbox" id="skill-hazmat" value="危険物取扱"> 危険物取扱</label>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancel-driver">キャンセル</button>
+                    <button type="submit" class="btn-primary">登録</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- 顧客登録モーダル -->
     <div id="customer-modal" class="modal">
         <div class="modal-content">
@@ -461,6 +567,10 @@
                 <div class="shortcut-item">
                     <div class="shortcut-key">Ctrl + T</div>
                     <div class="shortcut-desc">トラックマスタを開く</div>
+                </div>
+                <div class="shortcut-item">
+                    <div class="shortcut-key">Ctrl + I</div>
+                    <div class="shortcut-desc">ドライバーマスタを開く</div>
                 </div>
                 <div class="shortcut-item">
                     <div class="shortcut-key">Ctrl + C</div>

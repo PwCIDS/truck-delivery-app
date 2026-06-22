@@ -1,10 +1,12 @@
 class Database {
     constructor() {
-        this.dataVersion = '2.0'; // データバージョン
+        this.dataVersion = '3.0'; // データバージョン
         this.checkAndResetData();
         this.deliveries = this.loadData('deliveries') || [];
         this.trucks = this.loadData('trucks') || [];
         this.customers = this.loadData('customers') || [];
+        this.drivers = this.loadData('drivers') || [];
+        this.maintenances = this.loadData('maintenances') || [];
         this.initSampleData();
     }
 
@@ -15,6 +17,19 @@ class Database {
             localStorage.clear();
             localStorage.setItem('dataVersion', this.dataVersion);
         }
+    }
+
+    generateDriverSkills() {
+        const allSkills = ['保冷車運転', '活魚車運転', '長距離運転', 'フォークリフト', '危険物取扱'];
+        const numSkills = Math.floor(Math.random() * 3); // 0-2個のスキル
+        const skills = [];
+        for (let i = 0; i < numSkills; i++) {
+            const skill = allSkills[Math.floor(Math.random() * allSkills.length)];
+            if (!skills.includes(skill)) {
+                skills.push(skill);
+            }
+        }
+        return skills;
     }
 
     loadData(key) {
@@ -108,6 +123,42 @@ class Database {
             this.saveData('customers', this.customers);
         }
 
+        if (this.drivers.length === 0) {
+            this.drivers = [];
+            const driverLastNames = ['佐藤', '鈴木', '高橋', '田中', '伊藤', '渡辺', '山本', '中村', '小林', '加藤',
+                                     '吉田', '山田', '佐々木', '山口', '松本', '井上', '木村', '林', '斎藤', '清水',
+                                     '池田', '橋本', '阿部', '石川', '前田', '藤田', '後藤', '長谷川', '村上', '近藤'];
+            const driverFirstNames = ['太郎', '次郎', '三郎', '健一', '誠', '隆', '浩', '修', '勇', '大輔',
+                                      '拓也', '翔太', '直樹', '和也', '雄一', '慎一', '孝', '昭', '豊', '勝'];
+            const licenses = ['大型', '大型', '大型', '中型', '準中型'];
+
+            for (let i = 1; i <= 60; i++) {
+                const lastName = driverLastNames[Math.floor(Math.random() * driverLastNames.length)];
+                const firstName = driverFirstNames[Math.floor(Math.random() * driverFirstNames.length)];
+                const age = Math.floor(Math.random() * 30) + 25; // 25-54歳
+                const license = licenses[Math.floor(Math.random() * licenses.length)];
+                const experience = Math.floor(Math.random() * 20) + 1; // 1-20年
+                const phone = `090-${Math.floor(Math.random() * 9000) + 1000}-${Math.floor(Math.random() * 9000) + 1000}`;
+                const hireYear = 2010 + Math.floor(Math.random() * 15);
+                const hireMonth = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
+                const hireDay = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
+
+                this.drivers.push({
+                    id: i,
+                    code: `D-${String(i).padStart(3, '0')}`,
+                    name: `${lastName} ${firstName}`,
+                    age: age,
+                    license: license,
+                    experience: experience,
+                    phone: phone,
+                    hireDate: `${hireYear}-${hireMonth}-${hireDay}`,
+                    status: 'available',
+                    specialSkills: this.generateDriverSkills()
+                });
+            }
+            this.saveData('drivers', this.drivers);
+        }
+
         if (this.deliveries.length === 0) {
             this.deliveries = this.generateSampleDeliveries();
             this.saveData('deliveries', this.deliveries);
@@ -181,6 +232,7 @@ class Database {
             for (let i = 0; i < deliveriesPerDay; i++) {
                 const truckId = Math.floor(Math.random() * totalTrucks) + 1;
                 const customerId = Math.floor(Math.random() * totalCustomers) + 1;
+                const driverId = Math.floor(Math.random() * 60) + 1;
                 const startHour = 8 + Math.floor(Math.random() * 3);
                 const duration = Math.floor(Math.random() * 5) + 4; // 4-8時間
                 const isMultiDay = Math.random() > 0.8;
@@ -192,13 +244,20 @@ class Database {
                     id: id++,
                     truckId,
                     customerId,
+                    driverId,
                     startDate: this.formatDate(startDate),
                     startTime: `${String(startHour).padStart(2, '0')}:00`,
                     endDate: this.formatDate(endDate),
                     endTime: `${String((startHour + duration) % 24).padStart(2, '0')}:00`,
                     destinations: destinations[Math.floor(Math.random() * destinations.length)],
                     cargo: cargoTypes[Math.floor(Math.random() * cargoTypes.length)],
-                    status: 'completed'
+                    status: 'completed',
+                    detailedStatus: 'completed',
+                    actualStartTime: `${String(startHour).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
+                    actualEndTime: `${String((startHour + duration) % 24).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
+                    distance: Math.floor(Math.random() * 300) + 50,
+                    fuelCost: Math.floor(Math.random() * 15000) + 5000,
+                    notes: ''
                 });
             }
         }
@@ -210,6 +269,7 @@ class Database {
             for (let i = 0; i < deliveriesPerDay; i++) {
                 const truckId = Math.floor(Math.random() * totalTrucks) + 1;
                 const customerId = Math.floor(Math.random() * totalCustomers) + 1;
+                const driverId = Math.floor(Math.random() * 60) + 1;
                 const startHour = 7 + Math.floor(Math.random() * 4);
                 const duration = Math.floor(Math.random() * 6) + 4; // 4-9時間
                 const isMultiDay = Math.random() > 0.75;
@@ -221,13 +281,20 @@ class Database {
                     id: id++,
                     truckId,
                     customerId,
+                    driverId,
                     startDate: this.formatDate(startDate),
                     startTime: `${String(startHour).padStart(2, '0')}:00`,
                     endDate: this.formatDate(endDate),
                     endTime: `${String((startHour + duration) % 24).padStart(2, '0')}:00`,
                     destinations: destinations[Math.floor(Math.random() * destinations.length)],
                     cargo: cargoTypes[Math.floor(Math.random() * cargoTypes.length)],
-                    status: 'completed'
+                    status: 'completed',
+                    detailedStatus: 'completed',
+                    actualStartTime: `${String(startHour).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
+                    actualEndTime: `${String((startHour + duration) % 24).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
+                    distance: Math.floor(Math.random() * 300) + 50,
+                    fuelCost: Math.floor(Math.random() * 15000) + 5000,
+                    notes: ''
                 });
             }
         }
@@ -249,26 +316,44 @@ class Database {
                 const startDate = new Date(currentYear, 5, day); // 5 = June
                 const endDate = isMultiDay ? new Date(currentYear, 5, day + 1) : startDate;
 
-                let status;
+                let status, detailedStatus;
+                const driverId = Math.floor(Math.random() * 60) + 1;
+
                 if (day < currentDay - 1) {
                     status = 'completed';
+                    detailedStatus = 'completed';
                 } else if (day === currentDay - 1 || day === currentDay) {
-                    status = Math.random() > 0.5 ? 'inprogress' : 'completed';
+                    const rand = Math.random();
+                    if (rand > 0.7) {
+                        status = 'inprogress';
+                        detailedStatus = ['loading', 'intransit', 'unloading'][Math.floor(Math.random() * 3)];
+                    } else {
+                        status = 'completed';
+                        detailedStatus = 'completed';
+                    }
                 } else {
                     status = 'scheduled';
+                    detailedStatus = 'preparing';
                 }
 
                 deliveries.push({
                     id: id++,
                     truckId,
                     customerId,
+                    driverId,
                     startDate: this.formatDate(startDate),
                     startTime: `${String(startHour).padStart(2, '0')}:00`,
                     endDate: this.formatDate(endDate),
                     endTime: `${String((startHour + duration) % 24).padStart(2, '0')}:00`,
                     destinations: destinations[Math.floor(Math.random() * destinations.length)],
                     cargo: cargoTypes[Math.floor(Math.random() * cargoTypes.length)],
-                    status
+                    status,
+                    detailedStatus,
+                    actualStartTime: status === 'completed' ? `${String(startHour).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}` : null,
+                    actualEndTime: status === 'completed' ? `${String((startHour + duration) % 24).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}` : null,
+                    distance: Math.floor(Math.random() * 300) + 50,
+                    fuelCost: status === 'completed' ? Math.floor(Math.random() * 15000) + 5000 : null,
+                    notes: ''
                 });
             }
         }
@@ -478,5 +563,99 @@ class Database {
         }
 
         return availableTrucks;
+    }
+
+    // ドライバー管理
+    getAllDrivers() {
+        return this.drivers;
+    }
+
+    getDriverById(id) {
+        return this.drivers.find(d => d.id === id);
+    }
+
+    addDriver(driver) {
+        const newId = this.drivers.length > 0 ? Math.max(...this.drivers.map(d => d.id)) + 1 : 1;
+        driver.id = newId;
+        driver.status = 'available';
+        this.drivers.push(driver);
+        this.saveData('drivers', this.drivers);
+        return driver;
+    }
+
+    updateDriver(id, updatedDriver) {
+        const index = this.drivers.findIndex(d => d.id === id);
+        if (index !== -1) {
+            updatedDriver.id = id;
+            if (!updatedDriver.status) {
+                updatedDriver.status = this.drivers[index].status;
+            }
+            this.drivers[index] = updatedDriver;
+            this.saveData('drivers', this.drivers);
+            return true;
+        }
+        return false;
+    }
+
+    deleteDriver(id) {
+        const hasDeliveries = this.deliveries.some(d => d.driverId === id);
+        if (hasDeliveries) {
+            return false;
+        }
+
+        const index = this.drivers.findIndex(d => d.id === id);
+        if (index !== -1) {
+            this.drivers.splice(index, 1);
+            this.saveData('drivers', this.drivers);
+            return true;
+        }
+        return false;
+    }
+
+    isDriverAvailable(driverId, startDate, startTime, endDate, endTime, excludeDeliveryId = null) {
+        const [newStartHour, newStartMinute] = startTime.split(':').map(Number);
+        const [newEndHour, newEndMinute] = endTime.split(':').map(Number);
+
+        const newStartDateTime = new Date(startDate);
+        newStartDateTime.setHours(newStartHour, newStartMinute, 0, 0);
+
+        const newEndDateTime = new Date(endDate);
+        newEndDateTime.setHours(newEndHour, newEndMinute, 0, 0);
+
+        const deliveries = this.deliveries.filter(d => {
+            if (excludeDeliveryId && d.id === excludeDeliveryId) {
+                return false;
+            }
+            return d.driverId === driverId;
+        });
+
+        for (const delivery of deliveries) {
+            const [existingStartHour, existingStartMinute] = delivery.startTime.split(':').map(Number);
+            const [existingEndHour, existingEndMinute] = delivery.endTime.split(':').map(Number);
+
+            const existingStartDateTime = new Date(delivery.startDate);
+            existingStartDateTime.setHours(existingStartHour, existingStartMinute, 0, 0);
+
+            const existingEndDateTime = new Date(delivery.endDate);
+            existingEndDateTime.setHours(existingEndHour, existingEndMinute, 0, 0);
+
+            if (!(newEndDateTime <= existingStartDateTime || newStartDateTime >= existingEndDateTime)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    findAvailableDrivers(startDate, startTime, endDate, endTime, excludeDeliveryId = null) {
+        const availableDrivers = [];
+
+        for (const driver of this.drivers) {
+            if (this.isDriverAvailable(driver.id, startDate, startTime, endDate, endTime, excludeDeliveryId)) {
+                availableDrivers.push(driver);
+            }
+        }
+
+        return availableDrivers;
     }
 }
