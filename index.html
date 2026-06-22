@@ -138,6 +138,7 @@
                         <tr>
                             <th>トラックNo</th>
                             <th>車両番号</th>
+                            <th>種類</th>
                             <th>最大積載量</th>
                             <th>購入日</th>
                             <th>ステータス</th>
@@ -274,13 +275,14 @@
 
                 <!-- トラック検索 -->
                 <div class="form-group">
-                    <label for="delivery-truck-search">トラック *</label>
+                    <label for="delivery-truck-search">トラック</label>
                     <div class="searchable-select">
                         <input type="text" id="delivery-truck-search" placeholder="トラックを検索..." autocomplete="off">
-                        <input type="hidden" id="delivery-truck" required>
+                        <input type="hidden" id="delivery-truck">
                         <div id="delivery-truck-options" class="select-options"></div>
                     </div>
                     <div id="delivery-truck-selected" class="selected-item"></div>
+                    <button type="button" id="ai-suggest-truck" class="btn-ai" style="margin-top: 10px;">🤖 AIで空きトラックを提案</button>
                 </div>
 
                 <!-- 顧客検索 -->
@@ -368,6 +370,14 @@
                     <input type="text" id="truck-plate" placeholder="例: 品川 500 あ 1234" required>
                 </div>
                 <div class="form-group">
+                    <label for="truck-type">トラック種類 *</label>
+                    <select id="truck-type" required>
+                        <option value="配達">配達</option>
+                        <option value="保冷">保冷</option>
+                        <option value="活魚">活魚</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="truck-capacity">最大積載量 (kg) *</label>
                     <input type="number" id="truck-capacity" required>
                 </div>
@@ -415,6 +425,22 @@
                     <button type="submit" class="btn-primary">登録</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- AI提案モーダル -->
+    <div id="ai-suggestion-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>🤖 AIトラック提案</h2>
+            <div id="ai-suggestion-content">
+                <p>指定された日時で利用可能なトラックを探しています...</p>
+            </div>
+            <div id="ai-suggestion-list"></div>
+            <div class="form-actions" style="margin-top: 20px;">
+                <button type="button" class="btn-secondary" id="cancel-ai-suggestion">キャンセル</button>
+                <button type="button" class="btn-primary" id="confirm-ai-suggestion" style="display: none;">確定</button>
+            </div>
         </div>
     </div>
 

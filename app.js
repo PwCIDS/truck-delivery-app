@@ -6,6 +6,7 @@ let currentTruckSearch = null;
 let currentCustomerSearch = null;
 let currentSortField = null;
 let currentSortOrder = 'desc';
+let aiSuggestedTruck = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     initNavigation();
@@ -91,6 +92,13 @@ function initDeliveryManagement() {
 
     initSearchableSelect('delivery-truck', 'trucks');
     initSearchableSelect('delivery-customer', 'customers');
+
+    document.getElementById('ai-suggest-truck').addEventListener('click', openAISuggestionModal);
+    document.getElementById('cancel-ai-suggestion').addEventListener('click', closeAISuggestionModal);
+    document.getElementById('confirm-ai-suggestion').addEventListener('click', confirmAISuggestion);
+
+    const aiModal = document.getElementById('ai-suggestion-modal');
+    aiModal.querySelector('.close').addEventListener('click', closeAISuggestionModal);
 }
 
 function initSearchableSelect(fieldName, dataType) {
@@ -143,7 +151,7 @@ function showOptions(fieldName, dataType, query) {
         div.className = 'select-option';
 
         if (dataType === 'trucks') {
-            div.textContent = `${item.number} - ${item.plate} (${item.capacity}kg)`;
+            div.innerHTML = `${item.number} - ${item.plate} (${item.capacity}kg) <span class="truck-type-badge type-${item.type || '配達'}">${item.type || '配達'}</span>`;
         } else if (dataType === 'customers') {
             div.textContent = `${item.code} - ${item.name}`;
         }
@@ -166,7 +174,7 @@ function selectOption(fieldName, dataType, item) {
     if (dataType === 'trucks') {
         searchInput.value = '';
         selectedDiv.innerHTML = `
-            <span>${item.number} - ${item.plate} (${item.capacity}kg)</span>
+            <span>${item.number} - ${item.plate} (${item.capacity}kg) <span class="truck-type-badge type-${item.type || '配達'}">${item.type || '配達'}</span></span>
             <button type="button" class="remove-btn" onclick="clearSelection('${fieldName}', '${dataType}')">&times;</button>
         `;
     } else if (dataType === 'customers') {
@@ -280,7 +288,7 @@ function loadCalendarView() {
     html += '</tr></thead><tbody>';
 
     trucks.forEach(truck => {
-        html += `<tr><td class="truck-header">${truck.number}<br>${truck.plate}</td>`;
+        html += `<tr><td class="truck-header">${truck.number}<br>${truck.plate}<br><span class="truck-type-badge type-${truck.type || '配達'}">${truck.type || '配達'}</span></td>`;
 
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -312,6 +320,40 @@ function loadCalendarView() {
 
         html += '</tr>';
     });
+
+    // トラック未選択の配送を表示
+    const unassignedDeliveries = deliveries.filter(d => !d.truckId);
+    if (unassignedDeliveries.length > 0) {
+        html += `<tr><td class="truck-header" style="background-color: #e74c3c;">未選択配送</td>`;
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+            const deliveriesOnDate = unassignedDeliveries.filter(d => {
+                const startDate = new Date(d.startDate);
+                const endDate = new Date(d.endDate);
+                const currentDate = new Date(dateStr);
+
+                return currentDate >= startDate && currentDate <= endDate;
+            });
+
+            if (deliveriesOnDate.length > 0) {
+                const delivery = deliveriesOnDate[0];
+                const customer = db.getCustomerById(delivery.customerId);
+                const destText = delivery.destinations ? delivery.destinations[0] : '';
+                html += `<td class="calendar-cell" style="background-color: #fadbd8; cursor: pointer;" onclick="editDelivery(${delivery.id})">
+                    <div class="delivery-info" style="color: #333;">
+                        <div>${customer ? customer.name : ''}</div>
+                        <div>${destText}</div>
+                    </div>
+                </td>`;
+            } else {
+                html += `<td class="calendar-cell"></td>`;
+            }
+        }
+
+        html += '</tr>';
+    }
 
     html += '</tbody></table>';
 
@@ -358,11 +400,18 @@ function loadListView() {
         const startDateTime = `${delivery.startDate} ${delivery.startTime}`;
         const endDateTime = `${delivery.endDate} ${delivery.endTime}`;
 
+        let truckDisplay = '';
+        if (truck) {
+            truckDisplay = `${truck.number} <span class="truck-type-badge type-${truck.type || '配達'}">${truck.type || '配達'}</span>`;
+        } else {
+            truckDisplay = '<span class="truck-not-assigned">未選択</span>';
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${startDateTime}</td>
             <td>${endDateTime}</td>
-            <td>${truck ? truck.number : ''}</td>
+            <td>${truckDisplay}</td>
             <td>${customer ? customer.name : ''}</td>
             <td>${destText}</td>
             <td>${delivery.cargo}</td>
@@ -528,7 +577,8 @@ function handleDeliverySubmit(e) {
     e.preventDefault();
 
     const id = document.getElementById('delivery-id').value;
-    const truckId = parseInt(document.getElementById('delivery-truck').value);
+    const truckIdValue = document.getElementById('delivery-truck').value;
+    const truckId = truckIdValue ? parseInt(truckIdValue) : null;
     const customerId = parseInt(document.getElementById('delivery-customer').value);
     const startDate = document.getElementById('delivery-start-date').value;
     const startTime = document.getElementById('delivery-start-time').value;
@@ -536,8 +586,8 @@ function handleDeliverySubmit(e) {
     const endTime = document.getElementById('delivery-end-time').value;
     const cargo = document.getElementById('delivery-cargo').value;
 
-    if (!truckId || !customerId) {
-        alert('トラックと顧客を選択してください。');
+    if (!customerId) {
+        alert('顧客を選択してください。');
         return;
     }
 
@@ -554,11 +604,13 @@ function handleDeliverySubmit(e) {
         return;
     }
 
-    const isAvailable = db.isTruckAvailable(truckId, startDate, startTime, endDate, endTime, id ? parseInt(id) : null);
+    if (truckId) {
+        const isAvailable = db.isTruckAvailable(truckId, startDate, startTime, endDate, endTime, id ? parseInt(id) : null);
 
-    if (!isAvailable) {
-        alert('選択したトラックは指定の日時で既に予約されています。別のトラックまたは時間を選択してください。');
-        return;
+        if (!isAvailable) {
+            alert('選択したトラックは指定の日時で既に予約されています。別のトラックまたは時間を選択してください。');
+            return;
+        }
     }
 
     const deliveryData = {
@@ -605,6 +657,7 @@ function loadTrucksList() {
         tr.innerHTML = `
             <td>${truck.number}</td>
             <td>${truck.plate}</td>
+            <td><span class="truck-type-badge type-${truck.type || '配達'}">${truck.type || '配達'}</span></td>
             <td>${truck.capacity} kg</td>
             <td>${truck.purchaseDate}</td>
             <td><span class="status-badge status-${truck.status}">${truck.status === 'available' ? '利用可能' : '使用中'}</span></td>
@@ -642,6 +695,7 @@ function editTruck(id) {
     document.getElementById('truck-id').value = truck.id;
     document.getElementById('truck-number').value = truck.number;
     document.getElementById('truck-plate').value = truck.plate;
+    document.getElementById('truck-type').value = truck.type || '配達';
     document.getElementById('truck-capacity').value = truck.capacity;
     document.getElementById('truck-purchase-date').value = truck.purchaseDate;
 
@@ -666,6 +720,7 @@ function handleTruckSubmit(e) {
     const truckData = {
         number: document.getElementById('truck-number').value,
         plate: document.getElementById('truck-plate').value,
+        type: document.getElementById('truck-type').value,
         capacity: parseInt(document.getElementById('truck-capacity').value),
         purchaseDate: document.getElementById('truck-purchase-date').value
     };
@@ -1188,11 +1243,18 @@ function renderDeliveryItems(containerId, deliveries, trucks, customers) {
         const truck = trucks.find(t => t.id === delivery.truckId);
         const customer = customers.find(c => c.id === delivery.customerId);
 
+        let truckDisplay = '';
+        if (truck) {
+            truckDisplay = `${truck.number} <span class="truck-type-badge type-${truck.type || '配達'}" style="font-size: 10px; padding: 2px 6px;">${truck.type || '配達'}</span>`;
+        } else {
+            truckDisplay = '<span class="truck-not-assigned" style="font-size: 11px;">未選択</span>';
+        }
+
         const itemHTML = `
             <div class="delivery-item" onclick="editDelivery(${delivery.id})">
                 <div class="delivery-item-header">
                     <div class="delivery-item-time">${delivery.startTime} - ${delivery.endTime}</div>
-                    <div class="delivery-item-truck">${truck ? truck.number : ''}</div>
+                    <div class="delivery-item-truck">${truckDisplay}</div>
                 </div>
                 <div class="delivery-item-body">
                     <div class="delivery-item-customer">${customer ? customer.name : ''}</div>
@@ -1301,11 +1363,18 @@ function sortDeliveries(field) {
         const startDateTime = `${delivery.startDate} ${delivery.startTime}`;
         const endDateTime = `${delivery.endDate} ${delivery.endTime}`;
 
+        let truckDisplay = '';
+        if (truck) {
+            truckDisplay = `${truck.number} <span class="truck-type-badge type-${truck.type || '配達'}">${truck.type || '配達'}</span>`;
+        } else {
+            truckDisplay = '<span class="truck-not-assigned">未選択</span>';
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${startDateTime}</td>
             <td>${endDateTime}</td>
-            <td>${truck ? truck.number : ''}</td>
+            <td>${truckDisplay}</td>
             <td>${customer ? customer.name : ''}</td>
             <td>${destText}</td>
             <td>${delivery.cargo}</td>
@@ -1405,6 +1474,7 @@ function initKeyboardShortcuts() {
             closeTruckModal();
             closeCustomerModal();
             closeShortcutsModal();
+            closeAISuggestionModal();
         }
     });
 }
@@ -1415,4 +1485,87 @@ function openShortcutsModal() {
 
 function closeShortcutsModal() {
     document.getElementById('shortcuts-modal').classList.remove('active');
+}
+
+// AI提案機能
+function openAISuggestionModal() {
+    const startDate = document.getElementById('delivery-start-date').value;
+    const startTime = document.getElementById('delivery-start-time').value;
+    const endDate = document.getElementById('delivery-end-date').value;
+    const endTime = document.getElementById('delivery-end-time').value;
+
+    if (!startDate || !startTime || !endDate || !endTime) {
+        alert('出発日時と到着日時を入力してください。');
+        return;
+    }
+
+    const modal = document.getElementById('ai-suggestion-modal');
+    const contentDiv = document.getElementById('ai-suggestion-content');
+    const listDiv = document.getElementById('ai-suggestion-list');
+    const confirmBtn = document.getElementById('confirm-ai-suggestion');
+
+    contentDiv.innerHTML = '<p>指定された日時で利用可能なトラックを探しています...</p>';
+    listDiv.innerHTML = '';
+    confirmBtn.style.display = 'none';
+    aiSuggestedTruck = null;
+
+    modal.classList.add('active');
+
+    // AIシミュレーション(少し待機)
+    setTimeout(() => {
+        const deliveryId = document.getElementById('delivery-id').value;
+        const availableTrucks = db.findAvailableTrucks(
+            startDate,
+            startTime,
+            endDate,
+            endTime,
+            deliveryId ? parseInt(deliveryId) : null
+        );
+
+        if (availableTrucks.length === 0) {
+            contentDiv.innerHTML = '<p style="color: #e74c3c;">指定された日時で利用可能なトラックが見つかりませんでした。</p>';
+        } else {
+            contentDiv.innerHTML = `<p style="color: #27ae60;">✓ ${availableTrucks.length}台の利用可能なトラックが見つかりました。</p>`;
+
+            availableTrucks.forEach(truck => {
+                const div = document.createElement('div');
+                div.className = 'ai-suggestion-item';
+                div.innerHTML = `
+                    <div class="ai-suggestion-header">
+                        <span class="ai-suggestion-truck-number">${truck.number} - ${truck.plate}</span>
+                        <span class="ai-suggestion-truck-type type-${truck.type || '配達'}">${truck.type || '配達'}</span>
+                    </div>
+                    <div class="ai-suggestion-details">
+                        最大積載量: ${truck.capacity}kg | 購入日: ${truck.purchaseDate}
+                    </div>
+                `;
+
+                div.addEventListener('click', () => {
+                    document.querySelectorAll('.ai-suggestion-item').forEach(item => {
+                        item.classList.remove('selected');
+                    });
+                    div.classList.add('selected');
+                    aiSuggestedTruck = truck;
+                    confirmBtn.style.display = 'inline-block';
+                });
+
+                listDiv.appendChild(div);
+            });
+        }
+    }, 800);
+}
+
+function closeAISuggestionModal() {
+    document.getElementById('ai-suggestion-modal').classList.remove('active');
+    aiSuggestedTruck = null;
+}
+
+function confirmAISuggestion() {
+    if (!aiSuggestedTruck) {
+        alert('トラックを選択してください。');
+        return;
+    }
+
+    selectOption('delivery-truck', 'trucks', aiSuggestedTruck);
+    closeAISuggestionModal();
 }

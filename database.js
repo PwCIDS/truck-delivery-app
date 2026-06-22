@@ -18,9 +18,9 @@ class Database {
     initSampleData() {
         if (this.trucks.length === 0) {
             this.trucks = [
-                { id: 1, number: 'T-001', plate: '品川 500 あ 1234', capacity: 2000, purchaseDate: '2023-01-15', status: 'available' },
-                { id: 2, number: 'T-002', plate: '品川 500 あ 5678', capacity: 3000, purchaseDate: '2023-03-20', status: 'available' },
-                { id: 3, number: 'T-003', plate: '品川 500 い 9012', capacity: 4000, purchaseDate: '2023-06-10', status: 'available' }
+                { id: 1, number: 'T-001', plate: '品川 500 あ 1234', capacity: 2000, purchaseDate: '2023-01-15', status: 'available', type: '配達' },
+                { id: 2, number: 'T-002', plate: '品川 500 あ 5678', capacity: 3000, purchaseDate: '2023-03-20', status: 'available', type: '保冷' },
+                { id: 3, number: 'T-003', plate: '品川 500 い 9012', capacity: 4000, purchaseDate: '2023-06-10', status: 'available', type: '活魚' }
             ];
             this.saveData('trucks', this.trucks);
         }
@@ -300,6 +300,9 @@ class Database {
         const newId = this.trucks.length > 0 ? Math.max(...this.trucks.map(t => t.id)) + 1 : 1;
         truck.id = newId;
         truck.status = 'available';
+        if (!truck.type) {
+            truck.type = '配達'; // デフォルトは配達
+        }
         this.trucks.push(truck);
         this.saveData('trucks', this.trucks);
         return truck;
@@ -310,6 +313,9 @@ class Database {
         if (index !== -1) {
             updatedTruck.id = id;
             updatedTruck.status = this.trucks[index].status;
+            if (!updatedTruck.type) {
+                updatedTruck.type = this.trucks[index].type || '配達';
+            }
             this.trucks[index] = updatedTruck;
             this.saveData('trucks', this.trucks);
             return true;
@@ -372,5 +378,18 @@ class Database {
             return true;
         }
         return false;
+    }
+
+    // AI機能: 空きトラックを探す
+    findAvailableTrucks(startDate, startTime, endDate, endTime, excludeDeliveryId = null) {
+        const availableTrucks = [];
+
+        for (const truck of this.trucks) {
+            if (this.isTruckAvailable(truck.id, startDate, startTime, endDate, endTime, excludeDeliveryId)) {
+                availableTrucks.push(truck);
+            }
+        }
+
+        return availableTrucks;
     }
 }

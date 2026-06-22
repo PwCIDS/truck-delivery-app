@@ -880,6 +880,118 @@ table tbody tr:hover {
     color: #3498db;
 }
 
+/* AIボタン */
+.btn-ai {
+    padding: 10px 20px;
+    background-color: #9b59b6;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+    width: 100%;
+}
+
+.btn-ai:hover {
+    background-color: #8e44ad;
+}
+
+/* AI提案リスト */
+#ai-suggestion-list {
+    margin-top: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.ai-suggestion-item {
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    background-color: white;
+}
+
+.ai-suggestion-item:hover {
+    border-color: #9b59b6;
+    background-color: #f8f4fb;
+}
+
+.ai-suggestion-item.selected {
+    border-color: #9b59b6;
+    background-color: #e8d9f3;
+}
+
+.ai-suggestion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.ai-suggestion-truck-number {
+    font-weight: bold;
+    font-size: 16px;
+    color: #2c3e50;
+}
+
+.ai-suggestion-truck-type {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    background-color: #3498db;
+    color: white;
+}
+
+.ai-suggestion-truck-type.type-保冷 {
+    background-color: #3498db;
+}
+
+.ai-suggestion-truck-type.type-活魚 {
+    background-color: #1abc9c;
+}
+
+.ai-suggestion-truck-type.type-配達 {
+    background-color: #95a5a6;
+}
+
+.ai-suggestion-details {
+    font-size: 13px;
+    color: #666;
+}
+
+.truck-type-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    background-color: #3498db;
+    color: white;
+    margin-left: 5px;
+}
+
+.truck-type-badge.type-保冷 {
+    background-color: #3498db;
+}
+
+.truck-type-badge.type-活魚 {
+    background-color: #1abc9c;
+}
+
+.truck-type-badge.type-配達 {
+    background-color: #95a5a6;
+}
+
+.truck-not-assigned {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
 /* ショートカットモーダル */
 .shortcuts-list {
     display: flex;
