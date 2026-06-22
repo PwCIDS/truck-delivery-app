@@ -17,20 +17,83 @@ class Database {
 
     initSampleData() {
         if (this.trucks.length === 0) {
-            this.trucks = [
-                { id: 1, number: 'T-001', plate: '品川 500 あ 1234', capacity: 2000, purchaseDate: '2023-01-15', status: 'available', type: '配達' },
-                { id: 2, number: 'T-002', plate: '品川 500 あ 5678', capacity: 3000, purchaseDate: '2023-03-20', status: 'available', type: '保冷' },
-                { id: 3, number: 'T-003', plate: '品川 500 い 9012', capacity: 4000, purchaseDate: '2023-06-10', status: 'available', type: '活魚' }
-            ];
+            this.trucks = [];
+            const truckTypes = ['配達', '保冷', '活魚'];
+            const plateAreas = ['品川', '練馬', '足立', '世田谷', '多摩', '横浜', '川崎', '相模', '千葉', '柏', 'さいたま', '大宮'];
+            const plateKana = ['あ', 'い', 'う', 'え', 'か', 'き', 'く', 'け', 'こ', 'さ', 'し', 'す', 'せ', 'そ'];
+
+            for (let i = 1; i <= 50; i++) {
+                const type = truckTypes[Math.floor(Math.random() * truckTypes.length)];
+                const capacity = [1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000][Math.floor(Math.random() * 8)];
+                const plateArea = plateAreas[Math.floor(Math.random() * plateAreas.length)];
+                const plateKanaChar = plateKana[Math.floor(Math.random() * plateKana.length)];
+                const plateNumber = String(Math.floor(Math.random() * 9000) + 1000);
+                const year = 2020 + Math.floor(Math.random() * 5);
+                const month = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
+                const day = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
+
+                this.trucks.push({
+                    id: i,
+                    number: `T-${String(i).padStart(3, '0')}`,
+                    plate: `${plateArea} 500 ${plateKanaChar} ${plateNumber}`,
+                    capacity: capacity,
+                    purchaseDate: `${year}-${month}-${day}`,
+                    status: 'available',
+                    type: type
+                });
+            }
             this.saveData('trucks', this.trucks);
         }
 
         if (this.customers.length === 0) {
-            this.customers = [
-                { id: 1, code: 'C-001', name: '株式会社サンプル商事', address: '東京都千代田区丸の内1-1-1', phone: '03-1234-5678', contact: '山田太郎' },
-                { id: 2, code: 'C-002', name: '有限会社テスト物産', address: '神奈川県横浜市西区みなとみらい2-2-2', phone: '045-9876-5432', contact: '佐藤花子' },
-                { id: 3, code: 'C-003', name: 'デモ株式会社', address: '大阪府大阪市北区梅田3-3-3', phone: '06-5555-1111', contact: '鈴木一郎' }
+            this.customers = [];
+            const companyTypes = ['株式会社', '有限会社', '合同会社', '合資会社'];
+            const companySuffixes = ['商事', '物産', '運輸', '流通', '貿易', '産業', '工業', 'エンタープライズ', 'ホールディングス', 'コーポレーション', 'トレーディング', 'ロジスティクス', 'サービス', 'システムズ', 'テクノロジー'];
+            const companyPrefixes = ['東日本', '西日本', '中央', '太平洋', '大和', '富士', '日興', 'グローバル', 'アジア', 'ジャパン', '東京', '関東', '関西', '全国'];
+            const prefectures = [
+                { name: '東京都', cities: ['千代田区', '中央区', '港区', '新宿区', '文京区', '台東区', '墨田区', '江東区', '品川区', '目黒区', '大田区', '世田谷区', '渋谷区', '中野区', '杉並区', '豊島区', '北区', '荒川区', '板橋区', '練馬区', '足立区', '葛飾区', '江戸川区'] },
+                { name: '神奈川県', cities: ['横浜市中区', '横浜市西区', '横浜市南区', '横浜市港北区', '川崎市川崎区', '川崎市幸区', '相模原市中央区', '藤沢市', '横須賀市', '平塚市'] },
+                { name: '千葉県', cities: ['千葉市中央区', '千葉市美浜区', '船橋市', '松戸市', '市川市', '柏市', '浦安市', '習志野市'] },
+                { name: '埼玉県', cities: ['さいたま市大宮区', 'さいたま市浦和区', '川口市', '所沢市', '越谷市', '草加市', '春日部市', '熊谷市'] },
+                { name: '大阪府', cities: ['大阪市北区', '大阪市中央区', '大阪市西区', '大阪市天王寺区', '堺市堺区', '豊中市', '吹田市', '高槻市'] },
+                { name: '愛知県', cities: ['名古屋市中区', '名古屋市中村区', '名古屋市東区', '豊田市', '岡崎市', '一宮市', '豊橋市'] },
+                { name: '福岡県', cities: ['福岡市博多区', '福岡市中央区', '北九州市小倉北区', '久留米市', '飯塚市'] }
             ];
+            const lastNames = ['佐藤', '鈴木', '高橋', '田中', '伊藤', '渡辺', '山本', '中村', '小林', '加藤', '吉田', '山田', '佐々木', '山口', '松本', '井上', '木村', '林', '斎藤', '清水'];
+            const firstNames = ['太郎', '次郎', '三郎', '一郎', '健一', '誠', '隆', '浩', '修', '勇', '花子', '美咲', '愛', '優子', '恵子', '由美', '真由美', '智子', '陽子', '麻美'];
+
+            for (let i = 1; i <= 100; i++) {
+                const companyType = companyTypes[Math.floor(Math.random() * companyTypes.length)];
+                const companySuffix = companySuffixes[Math.floor(Math.random() * companySuffixes.length)];
+                const companyPrefix = Math.random() > 0.3 ? companyPrefixes[Math.floor(Math.random() * companyPrefixes.length)] : '';
+                const companyName = `${companyType}${companyPrefix}${companySuffix}`;
+
+                const prefecture = prefectures[Math.floor(Math.random() * prefectures.length)];
+                const city = prefecture.cities[Math.floor(Math.random() * prefecture.cities.length)];
+                const buildingNumber = `${Math.floor(Math.random() * 5) + 1}-${Math.floor(Math.random() * 20) + 1}-${Math.floor(Math.random() * 20) + 1}`;
+                const address = `${prefecture.name}${city}${buildingNumber}`;
+
+                const areaCode = prefecture.name.includes('東京') ? '03' :
+                                prefecture.name.includes('神奈川') ? '045' :
+                                prefecture.name.includes('千葉') ? '043' :
+                                prefecture.name.includes('埼玉') ? '048' :
+                                prefecture.name.includes('大阪') ? '06' :
+                                prefecture.name.includes('愛知') ? '052' : '092';
+                const phoneNumber = `${areaCode}-${Math.floor(Math.random() * 9000) + 1000}-${Math.floor(Math.random() * 9000) + 1000}`;
+
+                const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+                const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+                const contactName = `${lastName} ${firstName}`;
+
+                this.customers.push({
+                    id: i,
+                    code: `C-${String(i).padStart(3, '0')}`,
+                    name: companyName,
+                    address: address,
+                    phone: phoneNumber,
+                    contact: contactName
+                });
+            }
             this.saveData('customers', this.customers);
         }
 
@@ -51,6 +114,8 @@ class Database {
         const deliveries = [];
         let id = 1;
         const currentYear = new Date().getFullYear();
+        const totalTrucks = this.trucks.length;
+        const totalCustomers = this.customers.length;
 
         const destinations = [
             ['東京都千代田区'],
@@ -66,7 +131,13 @@ class Database {
             ['東京都新宿区', '東京都渋谷区', '東京都世田谷区'],
             ['神奈川県相模原市'],
             ['千葉県柏市'],
-            ['埼玉県川口市', '埼玉県越谷市']
+            ['埼玉県川口市', '埼玉県越谷市'],
+            ['東京都中央区', '東京都台東区'],
+            ['神奈川県藤沢市'],
+            ['千葉県市川市', '千葉県松戸市'],
+            ['埼玉県所沢市'],
+            ['大阪府堺市'],
+            ['愛知県豊田市']
         ];
 
         const cargoTypes = [
@@ -84,16 +155,21 @@ class Database {
             '冷凍食品 650kg',
             '化学製品 550kg',
             '文房具 250kg',
-            'OA機器 450kg'
+            'OA機器 450kg',
+            '生鮮食品 700kg',
+            '冷凍魚介類 850kg',
+            '活魚 300kg',
+            '野菜・果物 600kg',
+            '加工食品 950kg'
         ];
 
         // 4月のデータ（30日分）
         for (let day = 1; day <= 30; day++) {
-            const deliveriesPerDay = Math.floor(Math.random() * 3) + 2; // 2-4件/日
+            const deliveriesPerDay = Math.floor(Math.random() * 8) + 5; // 5-12件/日
 
             for (let i = 0; i < deliveriesPerDay; i++) {
-                const truckId = (id % 3) + 1;
-                const customerId = (id % 3) + 1;
+                const truckId = Math.floor(Math.random() * totalTrucks) + 1;
+                const customerId = Math.floor(Math.random() * totalCustomers) + 1;
                 const startHour = 8 + Math.floor(Math.random() * 3);
                 const duration = Math.floor(Math.random() * 5) + 4; // 4-8時間
                 const isMultiDay = Math.random() > 0.8;
@@ -118,11 +194,11 @@ class Database {
 
         // 5月のデータ（31日分）
         for (let day = 1; day <= 31; day++) {
-            const deliveriesPerDay = Math.floor(Math.random() * 4) + 2; // 2-5件/日
+            const deliveriesPerDay = Math.floor(Math.random() * 10) + 6; // 6-15件/日
 
             for (let i = 0; i < deliveriesPerDay; i++) {
-                const truckId = (id % 3) + 1;
-                const customerId = (id % 3) + 1;
+                const truckId = Math.floor(Math.random() * totalTrucks) + 1;
+                const customerId = Math.floor(Math.random() * totalCustomers) + 1;
                 const startHour = 7 + Math.floor(Math.random() * 4);
                 const duration = Math.floor(Math.random() * 6) + 4; // 4-9時間
                 const isMultiDay = Math.random() > 0.75;
@@ -150,11 +226,11 @@ class Database {
         const currentDay = today.getMonth() === 5 ? today.getDate() : 30;
 
         for (let day = 1; day <= 30; day++) {
-            const deliveriesPerDay = Math.floor(Math.random() * 4) + 2; // 2-5件/日
+            const deliveriesPerDay = Math.floor(Math.random() * 10) + 6; // 6-15件/日
 
             for (let i = 0; i < deliveriesPerDay; i++) {
-                const truckId = (id % 3) + 1;
-                const customerId = (id % 3) + 1;
+                const truckId = Math.floor(Math.random() * totalTrucks) + 1;
+                const customerId = Math.floor(Math.random() * totalCustomers) + 1;
                 const startHour = 7 + Math.floor(Math.random() * 5);
                 const duration = Math.floor(Math.random() * 6) + 4; // 4-9時間
                 const isMultiDay = Math.random() > 0.8;
