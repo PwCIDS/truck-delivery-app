@@ -32,6 +32,17 @@ function initNavigation() {
     document.getElementById('nav-maintenance').addEventListener('click', () => switchSection('maintenance'));
     document.getElementById('nav-reports').addEventListener('click', () => switchSection('reports'));
     document.getElementById('nav-data').addEventListener('click', () => switchSection('data'));
+
+    // 管理者のみ表示
+    const navUsers = document.getElementById('nav-users');
+    if (navUsers && authManager.isAdmin()) {
+        navUsers.addEventListener('click', () => switchSection('users'));
+    }
+
+    const navSecurity = document.getElementById('nav-security');
+    if (navSecurity) {
+        navSecurity.addEventListener('click', () => switchSection('security'));
+    }
 }
 
 function switchSection(section) {
@@ -1856,6 +1867,25 @@ function handleCustomerSubmit(e) {
 }
 
 function initDataManagement() {
+    // バックアップ管理
+    loadBackupStatus();
+    loadBackupHistory();
+
+    document.getElementById('save-backup-settings').addEventListener('click', saveBackupSettings);
+    document.getElementById('create-manual-backup').addEventListener('click', createManualBackup);
+    document.getElementById('refresh-backup-list').addEventListener('click', loadBackupHistory);
+    document.getElementById('delete-all-backups').addEventListener('click', deleteAllBackups);
+
+    // JSONインポート
+    document.getElementById('import-json').addEventListener('click', () => {
+        document.getElementById('import-json-file').click();
+    });
+    document.getElementById('import-json-file').addEventListener('change', (e) => {
+        importFromJSON(e.target.files[0]);
+        e.target.value = '';
+    });
+
+    // 既存のエクスポート/インポート
     document.getElementById('export-deliveries').addEventListener('click', () => exportToCSV('deliveries'));
     document.getElementById('export-trucks').addEventListener('click', () => exportToCSV('trucks'));
     document.getElementById('export-customers').addEventListener('click', () => exportToCSV('customers'));
@@ -1886,6 +1916,225 @@ function initDataManagement() {
     });
 
     document.getElementById('clear-all-data').addEventListener('click', clearAllData);
+}
+
+// バックアップステータスの読み込み
+async function loadBackupStatus() {
+    try {
+        const stats = await backupManager.getBackupStats();
+        const settings = backupManager.settings;
+
+        // 設定を反映
+        document.getElementById('auto-backup-enabled').checked = settings.autoBackup;
+        document.getElementById('backup-interval').value = settings.backupInterval;
+
+        // ステータス表示
+        const statusText = settings.autoBackup ? '✓ 有効' : '✗ 無効';
+        document.getElementById('backup-status-text').textContent = statusText;
+        document.getElementById('backup-status-text').style.color = settings.autoBackup ? '#27ae60' : '#e74c3c';
+
+        // 最終バックアップ時刻
+        if (settings.lastBackupTime) {
+            const lastBackupDate = new Date(settings.lastBackupTime);
+            document.getElementById('last-backup-time').textContent = lastBackupDate.toLocaleString('ja-JP');
+        } else {
+            document.getElementById('last-backup-time').textContent = 'まだバックアップされていません';
+        }
+
+        // 次回バックアップ時刻
+        const hoursUntilNext = backupManager.getHoursUntilNextBackup();
+        if (hoursUntilNext !== null && settings.autoBackup) {
+            if (hoursUntilNext === 0) {
+                document.getElementById('next-backup-time').textContent = '準備中...';
+            } else {
+                document.getElementById('next-backup-time').textContent = `約${hoursUntilNext}時間後`;
+            }
+        } else {
+            document.getElementById('next-backup-time').textContent = settings.autoBackup ? '設定後に表示' : '-';
+        }
+
+        // バックアップ統計
+        if (stats) {
+            document.getElementById('total-backups').textContent = stats.totalBackups;
+            document.getElementById('total-backup-size').textContent = stats.totalSizeMB;
+        }
+
+    } catch (error) {
+        console.error('バックアップステータス読み込みエラー:', error);
+    }
+}
+
+// バックアップ履歴の読み込み
+async function loadBackupHistory() {
+    try {
+        const backups = await backupManager.getAllBackups();
+        const container = document.getElementById('backup-history-list');
+        container.innerHTML = '';
+
+        if (backups.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">バックアップ履歴がありません</p>';
+            return;
+        }
+
+        backups.forEach((backup, index) => {
+            const backupDate = new Date(backup.timestamp);
+            const typeLabel = backup.type === 'auto' ? '自動' :
+                             backup.type === 'manual' ? '手動' :
+                             backup.type === 'pre-restore' ? '復元前' :
+                             backup.type === 'pre-import' ? 'インポート前' : '不明';
+            const typeColor = backup.type === 'auto' ? '#3498db' :
+                             backup.type === 'manual' ? '#27ae60' : '#95a5a6';
+            const sizeMB = (backup.size / (1024 * 1024)).toFixed(2);
+
+            const backupDiv = document.createElement('div');
+            backupDiv.className = 'backup-item';
+            backupDiv.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; margin-bottom: 8px;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 5px;">
+                            ${backupDate.toLocaleString('ja-JP')}
+                            <span style="background-color: ${typeColor}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px;">${typeLabel}</span>
+                        </div>
+                        <div style="font-size: 12px; color: #666;">
+                            サイズ: ${sizeMB} MB |
+                            配送: ${backup.data.deliveries.length}件 |
+                            トラック: ${backup.data.trucks.length}台 |
+                            顧客: ${backup.data.customers.length}件
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button class="btn-secondary" onclick="restoreFromBackup(${backup.id})" style="padding: 5px 10px; font-size: 12px;">復元</button>
+                        <button class="btn-secondary" onclick="downloadBackupJSON(${backup.id})" style="padding: 5px 10px; font-size: 12px;">📥 DL</button>
+                        <button class="btn-danger" onclick="deleteSingleBackup(${backup.id})" style="padding: 5px 10px; font-size: 12px;">削除</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(backupDiv);
+        });
+
+        // ステータス更新
+        await loadBackupStatus();
+
+    } catch (error) {
+        console.error('バックアップ履歴読み込みエラー:', error);
+        alert('バックアップ履歴の読み込みに失敗しました。');
+    }
+}
+
+// バックアップ設定を保存
+async function saveBackupSettings() {
+    try {
+        const autoBackup = document.getElementById('auto-backup-enabled').checked;
+        const backupInterval = parseInt(document.getElementById('backup-interval').value);
+
+        backupManager.updateSettings({
+            autoBackup: autoBackup,
+            backupInterval: backupInterval
+        });
+
+        await loadBackupStatus();
+        alert('バックアップ設定を保存しました。');
+    } catch (error) {
+        console.error('設定保存エラー:', error);
+        alert('設定の保存に失敗しました。');
+    }
+}
+
+// 手動バックアップ作成
+async function createManualBackup() {
+    try {
+        const btn = document.getElementById('create-manual-backup');
+        btn.disabled = true;
+        btn.textContent = 'バックアップ中...';
+
+        await backupManager.createBackup('manual');
+        await loadBackupHistory();
+
+        btn.disabled = false;
+        btn.textContent = '今すぐバックアップ';
+        alert('バックアップを作成しました。');
+    } catch (error) {
+        console.error('バックアップ作成エラー:', error);
+        alert('バックアップの作成に失敗しました。');
+        document.getElementById('create-manual-backup').disabled = false;
+        document.getElementById('create-manual-backup').textContent = '今すぐバックアップ';
+    }
+}
+
+// バックアップから復元
+async function restoreFromBackup(backupId) {
+    if (!confirm('このバックアップから復元しますか？\n現在のデータは自動的にバックアップされます。')) {
+        return;
+    }
+
+    try {
+        await backupManager.restoreBackup(backupId);
+        alert('バックアップから復元しました。\nページを再読み込みします。');
+        location.reload();
+    } catch (error) {
+        console.error('復元エラー:', error);
+        alert('復元に失敗しました: ' + error.message);
+    }
+}
+
+// バックアップをJSONでダウンロード
+async function downloadBackupJSON(backupId) {
+    try {
+        await backupManager.downloadBackupAsJSON(backupId);
+    } catch (error) {
+        console.error('ダウンロードエラー:', error);
+        alert('ダウンロードに失敗しました。');
+    }
+}
+
+// 単一のバックアップを削除
+async function deleteSingleBackup(backupId) {
+    if (!confirm('このバックアップを削除しますか？')) {
+        return;
+    }
+
+    try {
+        await backupManager.deleteBackup(backupId);
+        await loadBackupHistory();
+        alert('バックアップを削除しました。');
+    } catch (error) {
+        console.error('削除エラー:', error);
+        alert('削除に失敗しました。');
+    }
+}
+
+// 全バックアップを削除
+async function deleteAllBackups() {
+    if (!confirm('全てのバックアップを削除しますか？\nこの操作は取り消せません。')) {
+        return;
+    }
+
+    try {
+        await backupManager.deleteAllBackups();
+        await loadBackupHistory();
+        alert('全てのバックアップを削除しました。');
+    } catch (error) {
+        console.error('全削除エラー:', error);
+        alert('削除に失敗しました。');
+    }
+}
+
+// JSONファイルからインポート
+async function importFromJSON(file) {
+    if (!file) return;
+
+    if (!confirm('JSONファイルからデータをインポートしますか？\n現在のデータは自動的にバックアップされます。')) {
+        return;
+    }
+
+    try {
+        await backupManager.importFromJSON(file);
+        alert('インポートが完了しました。\nページを再読み込みします。');
+        location.reload();
+    } catch (error) {
+        console.error('インポートエラー:', error);
+        alert('インポートに失敗しました: ' + error.message);
+    }
 }
 
 function exportToCSV(type) {
@@ -2232,11 +2481,84 @@ function initReportsManagement() {
     });
 }
 
+async function loadDashboardBackupStatus() {
+    try {
+        const container = document.getElementById('dashboard-backup-status');
+        const settings = backupManager.settings;
+        const stats = await backupManager.getBackupStats();
+
+        let statusHtml = '';
+
+        // バックアップの有無チェック
+        const hoursSince = backupManager.getHoursSinceLastBackup();
+
+        if (!settings.lastBackupTime) {
+            // バックアップが一度もされていない
+            statusHtml = `
+                <div style="padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 5px;">
+                    <strong style="color: #856404;">⚠️ バックアップが作成されていません</strong>
+                    <p style="margin: 8px 0 0 0; color: #856404;">データ保護のため、バックアップを作成することを強くお勧めします。</p>
+                    <button onclick="switchSection('data')" style="margin-top: 10px; padding: 8px 16px; background-color: #ffc107; color: #212529; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                        今すぐバックアップ作成
+                    </button>
+                </div>
+            `;
+        } else if (hoursSince !== null && hoursSince >= 168) {
+            // 7日間以上バックアップされていない
+            const lastBackupDate = new Date(settings.lastBackupTime);
+            statusHtml = `
+                <div style="padding: 15px; background-color: #f8d7da; border-left: 4px solid #e74c3c; border-radius: 5px;">
+                    <strong style="color: #721c24;">⚠️ バックアップが古くなっています</strong>
+                    <p style="margin: 8px 0 0 0; color: #721c24;">最終バックアップ: ${lastBackupDate.toLocaleString('ja-JP')} (${Math.floor(hoursSince / 24)}日前)</p>
+                    <button onclick="switchSection('data')" style="margin-top: 10px; padding: 8px 16px; background-color: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                        バックアップ作成
+                    </button>
+                </div>
+            `;
+        } else {
+            // 正常
+            const lastBackupDate = new Date(settings.lastBackupTime);
+            const autoBackupStatus = settings.autoBackup ? '有効' : '無効';
+            const autoBackupColor = settings.autoBackup ? '#27ae60' : '#e74c3c';
+
+            statusHtml = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div style="padding: 12px; background-color: white; border: 1px solid #ddd; border-radius: 5px;">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">最終バックアップ</div>
+                        <div style="font-size: 16px; font-weight: bold; color: #2c3e50;">${lastBackupDate.toLocaleString('ja-JP', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                    <div style="padding: 12px; background-color: white; border: 1px solid #ddd; border-radius: 5px;">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">自動バックアップ</div>
+                        <div style="font-size: 16px; font-weight: bold; color: ${autoBackupColor};">${autoBackupStatus}</div>
+                    </div>
+                    <div style="padding: 12px; background-color: white; border: 1px solid #ddd; border-radius: 5px;">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">保存済み</div>
+                        <div style="font-size: 16px; font-weight: bold; color: #2c3e50;">${stats ? stats.totalBackups : 0} 件</div>
+                    </div>
+                    <div style="padding: 12px; background-color: white; border: 1px solid #ddd; border-radius: 5px;">
+                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">合計サイズ</div>
+                        <div style="font-size: 16px; font-weight: bold; color: #2c3e50;">${stats ? stats.totalSizeMB : 0} MB</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        container.innerHTML = statusHtml;
+
+    } catch (error) {
+        console.error('ダッシュボードバックアップステータスエラー:', error);
+        document.getElementById('dashboard-backup-status').innerHTML = '<p style="color: #e74c3c;">ステータスの読み込みに失敗しました</p>';
+    }
+}
+
 function loadDashboard() {
     const deliveries = db.getAllDeliveries();
     const trucks = db.getAllTrucks();
     const customers = db.getAllCustomers();
     const drivers = db.getAllDrivers();
+
+    // バックアップステータス表示
+    loadDashboardBackupStatus();
 
     // アラート表示
     const alerts = db.generateAlerts();

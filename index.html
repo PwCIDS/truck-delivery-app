@@ -7,11 +7,44 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
+    <!-- ログイン画面 -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <h1>🚚 トラック配送管理システム</h1>
+                <p>ログインしてください</p>
+            </div>
+            <form id="login-form" class="login-form">
+                <div class="form-group">
+                    <label for="login-username">ユーザー名</label>
+                    <input type="text" id="login-username" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">パスワード</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <div id="login-error" class="login-error"></div>
+                <button type="submit" class="btn-primary" style="width: 100%;">ログイン</button>
+            </form>
+            <div class="login-footer">
+                <p style="font-size: 12px; color: #999; margin-top: 20px;">
+                    デフォルトアカウント:<br>
+                    管理者: <strong>admin</strong> / <strong>admin123</strong><br>
+                    一般ユーザー: <strong>user</strong> / <strong>user123</strong>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- メインアプリケーション -->
+    <div id="main-app" class="container" style="display: none;">
         <header>
             <div class="header-top">
                 <h1>トラック配送管理システム</h1>
-                <button id="show-shortcuts" class="btn-help" title="キーボードショートカット">⌨️ ショートカット</button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div id="user-info"></div>
+                    <button id="show-shortcuts" class="btn-help" title="キーボードショートカット">⌨️ ショートカット</button>
+                </div>
             </div>
             <nav>
                 <button id="nav-dashboard" class="nav-btn active">ダッシュボード</button>
@@ -22,6 +55,8 @@
                 <button id="nav-maintenance" class="nav-btn">メンテナンス</button>
                 <button id="nav-reports" class="nav-btn">統計・レポート</button>
                 <button id="nav-data" class="nav-btn">データ管理</button>
+                <button id="nav-users" class="nav-btn admin-only">👥 ユーザー管理</button>
+                <button id="nav-security" class="nav-btn">🔐 セキュリティ</button>
             </nav>
         </header>
 
@@ -33,6 +68,12 @@
                 </div>
 
                 <div class="dashboard-container">
+                    <!-- バックアップステータスカード -->
+                    <div class="notification-card" style="grid-column: 1 / -1; background-color: #f0f8ff; border: 2px solid #3498db;">
+                        <h3>💾 バックアップステータス</h3>
+                        <div id="dashboard-backup-status"></div>
+                    </div>
+
                     <div class="notification-card notification-card-alert" style="grid-column: 1 / -1;">
                         <h3>🔔 アラート・通知</h3>
                         <div id="alerts-list"></div>
@@ -145,6 +186,62 @@
                         </thead>
                         <tbody id="delivery-list"></tbody>
                     </table>
+                </div>
+
+                <!-- 地図・GPS追跡タブ -->
+                <div class="view-toggle" style="margin-top: 20px;">
+                    <button id="view-map" class="view-btn">🗺️ 地図表示</button>
+                    <button id="view-gps" class="view-btn">📍 GPS追跡</button>
+                </div>
+
+                <!-- 地図表示 -->
+                <div id="map-view" style="display: none; margin-top: 20px;">
+                    <div class="notification-card" style="background-color: #f0f8ff;">
+                        <h3>🗺️ 配送ルート地図</h3>
+                        <p style="color: #666; margin-bottom: 15px;">
+                            配送ルートを地図上で確認できます。Google Maps APIキーを設定すると、実際の地図とルート最適化機能が利用できます。
+                        </p>
+                        <button onclick="googleMapsManager.showApiKeyDialog()" class="btn-primary">
+                            🔑 Google Maps APIキー設定
+                        </button>
+                        <button onclick="showDeliveryRouteSelector()" class="btn-primary" style="margin-left: 10px;">
+                            📍 配送を選択して地図表示
+                        </button>
+                    </div>
+
+                    <!-- Google Map表示エリア -->
+                    <div id="google-map-container" style="width: 100%; height: 600px; margin-top: 20px; border: 2px solid #ddd; border-radius: 10px; display: none;"></div>
+
+                    <!-- ルート情報表示 -->
+                    <div id="route-info-container" style="margin-top: 20px;"></div>
+                </div>
+
+                <!-- GPS追跡表示 -->
+                <div id="gps-view" style="display: none; margin-top: 20px;">
+                    <div class="notification-card" style="background-color: #e8f5e9;">
+                        <h3>📍 リアルタイムGPS追跡</h3>
+                        <p style="color: #666; margin-bottom: 15px;">
+                            運転中の配送をリアルタイムで追跡します。実際のGPSまたはシミュレーションが選択できます。
+                        </p>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <label style="display: flex; align-items: center;">
+                                <input type="checkbox" id="use-real-gps" style="margin-right: 5px;">
+                                実際のGPSを使用する（デバイスの位置情報）
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- アクティブ追跡リスト -->
+                    <div id="active-tracking-list" style="margin-top: 20px;">
+                        <h3>運転中の配送</h3>
+                        <div id="tracking-deliveries-list"></div>
+                    </div>
+
+                    <!-- GPS追跡地図 -->
+                    <div id="gps-map-container" style="width: 100%; height: 600px; margin-top: 20px; border: 2px solid #ddd; border-radius: 10px; display: none;"></div>
+
+                    <!-- 追跡統計 -->
+                    <div id="tracking-stats-container" style="margin-top: 20px;"></div>
                 </div>
             </section>
 
@@ -343,6 +440,90 @@
                         <h3>🚗 ドライバー稼働率（上位10名）</h3>
                         <div id="driver-utilization"></div>
                     </div>
+
+                    <!-- 通知設定カード -->
+                    <div class="stats-card">
+                        <h3>🔔 通知設定</h3>
+                        <p style="color: #666; margin-bottom: 15px;">配送開始、完了、遅延などの通知を設定できます。</p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button onclick="notificationManager.showSettingsDialog()" class="btn-primary">
+                                ⚙️ 通知設定
+                            </button>
+                            <button onclick="notificationManager.testNotification()" class="btn-secondary">
+                                🔔 テスト通知
+                            </button>
+                            <button onclick="notificationManager.requestPermission()" class="btn-secondary">
+                                🔓 通知権限リクエスト
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ユーザー管理画面（管理者のみ） -->
+            <section id="users-section" class="section admin-only">
+                <div class="section-header">
+                    <h2>👥 ユーザー管理</h2>
+                    <button id="add-user" class="btn-primary">+ 新規ユーザー登録</button>
+                </div>
+
+                <div class="data-management-container">
+                    <div class="data-card">
+                        <h3>登録ユーザー一覧</h3>
+                        <div id="users-list-container" style="margin-top: 15px;"></div>
+                    </div>
+
+                    <div class="data-card">
+                        <h3>📋 アクティビティログ（最新100件）</h3>
+                        <div id="activity-logs" style="max-height: 400px; overflow-y: auto; margin-top: 15px;"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- セキュリティ設定画面 -->
+            <section id="security-section" class="section">
+                <div class="section-header">
+                    <h2>🔐 セキュリティ設定</h2>
+                </div>
+
+                <div class="data-management-container">
+                    <div class="data-card">
+                        <h3>パスワード変更</h3>
+                        <form id="change-password-form">
+                            <div class="form-group">
+                                <label for="current-password">現在のパスワード *</label>
+                                <input type="password" id="current-password" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-password">新しいパスワード *</label>
+                                <input type="password" id="new-password" required minlength="6">
+                            </div>
+                            <div class="form-group">
+                                <label for="confirm-password">新しいパスワード（確認） *</label>
+                                <input type="password" id="confirm-password" required minlength="6">
+                            </div>
+                            <button type="submit" class="btn-primary">パスワード変更</button>
+                        </form>
+                    </div>
+
+                    <div class="data-card admin-only">
+                        <h3>データ暗号化設定（管理者のみ）</h3>
+                        <p style="margin-bottom: 15px; color: #666;">
+                            ⚠️ 暗号化を有効にすると、LocalStorageのデータが暗号化されます。<br>
+                            パスワードを忘れるとデータを復号化できなくなりますのでご注意ください。
+                        </p>
+                        <div id="encryption-status" style="margin-bottom: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
+                            <p style="margin: 0;"><strong>ステータス:</strong> <span id="encryption-status-text">確認中...</span></p>
+                        </div>
+                        <div class="data-actions">
+                            <button id="toggle-encryption" class="btn-secondary">暗号化設定を変更</button>
+                        </div>
+                    </div>
+
+                    <div class="data-card">
+                        <h3>セッション情報</h3>
+                        <div id="session-info" style="padding: 15px; background-color: #f8f9fa; border-radius: 5px;"></div>
+                    </div>
                 </div>
             </section>
 
@@ -353,34 +534,80 @@
                 </div>
 
                 <div class="data-management-container">
+                    <!-- 自動バックアップ設定 -->
+                    <div class="data-card data-card-backup">
+                        <h3>💾 自動バックアップ設定</h3>
+                        <div id="backup-status" style="margin-bottom: 15px; padding: 10px; background-color: #e8f4f8; border-radius: 5px;">
+                            <p style="margin: 5px 0;"><strong>ステータス:</strong> <span id="backup-status-text">読み込み中...</span></p>
+                            <p style="margin: 5px 0;"><strong>最終バックアップ:</strong> <span id="last-backup-time">-</span></p>
+                            <p style="margin: 5px 0;"><strong>次回自動バックアップ:</strong> <span id="next-backup-time">-</span></p>
+                            <p style="margin: 5px 0;"><strong>保存済みバックアップ:</strong> <span id="total-backups">0</span> 件 (<span id="total-backup-size">0</span> MB)</p>
+                        </div>
+                        <div class="backup-settings" style="margin-bottom: 15px;">
+                            <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                <input type="checkbox" id="auto-backup-enabled" style="width: auto;">
+                                <span>自動バックアップを有効化</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <span>バックアップ間隔:</span>
+                                <select id="backup-interval" style="width: auto; padding: 5px;">
+                                    <option value="1">1時間</option>
+                                    <option value="6">6時間</option>
+                                    <option value="12">12時間</option>
+                                    <option value="24" selected>24時間</option>
+                                    <option value="48">48時間</option>
+                                    <option value="168">7日間</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="data-actions">
+                            <button id="save-backup-settings" class="btn-primary">設定を保存</button>
+                            <button id="create-manual-backup" class="btn-secondary">今すぐバックアップ</button>
+                        </div>
+                    </div>
+
+                    <!-- バックアップ履歴 -->
+                    <div class="data-card">
+                        <h3>📋 バックアップ履歴</h3>
+                        <p>保存されているバックアップから復元できます</p>
+                        <div id="backup-history-list" style="max-height: 400px; overflow-y: auto; margin: 15px 0;"></div>
+                        <div class="data-actions">
+                            <button id="refresh-backup-list" class="btn-secondary">リストを更新</button>
+                            <button id="delete-all-backups" class="btn-danger">全バックアップを削除</button>
+                        </div>
+                    </div>
+
                     <div class="data-card">
                         <h3>データエクスポート</h3>
-                        <p>データをCSV形式でバックアップします</p>
+                        <p>データをCSV/JSON形式でエクスポートします</p>
                         <div class="data-actions">
-                            <button id="export-deliveries" class="btn-primary">配送データをエクスポート</button>
-                            <button id="export-trucks" class="btn-primary">トラックデータをエクスポート</button>
-                            <button id="export-customers" class="btn-primary">顧客データをエクスポート</button>
-                            <button id="export-all" class="btn-primary">全データをエクスポート</button>
+                            <button id="export-deliveries" class="btn-primary">配送データ (CSV)</button>
+                            <button id="export-trucks" class="btn-primary">トラック (CSV)</button>
+                            <button id="export-customers" class="btn-primary">顧客 (CSV)</button>
+                            <button id="export-all" class="btn-primary">全データ (JSON)</button>
                         </div>
                     </div>
 
                     <div class="data-card">
                         <h3>データインポート</h3>
-                        <p>CSV形式のデータをインポートします（既存データに追加されます）</p>
+                        <p>CSV/JSON形式のデータをインポートします</p>
                         <div class="data-actions">
                             <input type="file" id="import-deliveries-file" accept=".csv" style="display: none;">
-                            <button id="import-deliveries" class="btn-secondary">配送データをインポート</button>
+                            <button id="import-deliveries" class="btn-secondary">配送 (CSV)</button>
 
                             <input type="file" id="import-trucks-file" accept=".csv" style="display: none;">
-                            <button id="import-trucks" class="btn-secondary">トラックデータをインポート</button>
+                            <button id="import-trucks" class="btn-secondary">トラック (CSV)</button>
 
                             <input type="file" id="import-customers-file" accept=".csv" style="display: none;">
-                            <button id="import-customers" class="btn-secondary">顧客データをインポート</button>
+                            <button id="import-customers" class="btn-secondary">顧客 (CSV)</button>
+
+                            <input type="file" id="import-json-file" accept=".json" style="display: none;">
+                            <button id="import-json" class="btn-secondary">全データ (JSON)</button>
                         </div>
                     </div>
 
                     <div class="data-card data-card-warning">
-                        <h3>データ削除</h3>
+                        <h3>⚠️ データ削除</h3>
                         <p>全てのデータを削除します（この操作は取り消せません）</p>
                         <div class="data-actions">
                             <button id="clear-all-data" class="btn-danger">全データを削除</button>
@@ -732,6 +959,47 @@
         </div>
     </div>
 
+    <!-- 配送詳細・地図モーダル -->
+    <div id="delivery-details-modal" class="modal">
+        <div class="modal-content modal-content-large" style="max-width: 900px;">
+            <span class="close">&times;</span>
+            <h2>📍 配送詳細・ルート地図</h2>
+
+            <div class="tabs-container" style="margin-bottom: 20px;">
+                <button class="tab-btn active" onclick="switchDeliveryTab('map')">🗺️ ルート地図</button>
+                <button class="tab-btn" onclick="switchDeliveryTab('details')">📊 詳細情報</button>
+                <button class="tab-btn" onclick="switchDeliveryTab('optimize')">⚡ 最適化</button>
+            </div>
+
+            <!-- 地図タブ -->
+            <div id="delivery-tab-map" class="tab-content active">
+                <div id="route-map-container" style="overflow: auto; border: 1px solid #ddd; border-radius: 5px;"></div>
+                <div id="route-table-container"></div>
+            </div>
+
+            <!-- 詳細情報タブ -->
+            <div id="delivery-tab-details" class="tab-content" style="display: none;">
+                <div id="delivery-details-info"></div>
+            </div>
+
+            <!-- 最適化タブ -->
+            <div id="delivery-tab-optimize" class="tab-content" style="display: none;">
+                <div style="padding: 20px; background-color: #fff3cd; border-radius: 5px; margin-bottom: 15px;">
+                    <h3 style="margin-top: 0;">⚡ ルート最適化</h3>
+                    <p>複数の行先を効率的な順序に並べ替えます（最近傍法）。</p>
+                </div>
+                <div id="optimization-result"></div>
+                <div style="margin-top: 15px;">
+                    <button id="apply-optimization" class="btn-primary">最適化ルートを適用</button>
+                </div>
+            </div>
+
+            <div class="form-actions" style="margin-top: 20px;">
+                <button type="button" class="btn-secondary" id="close-delivery-details">閉じる</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 配送指示書モーダル -->
     <div id="delivery-instruction-modal" class="modal">
         <div class="modal-content modal-content-large" id="delivery-instruction-content">
@@ -822,6 +1090,40 @@
                 <button type="button" class="btn-secondary" id="cancel-ai-suggestion">キャンセル</button>
                 <button type="button" class="btn-primary" id="confirm-ai-suggestion" style="display: none;">確定</button>
             </div>
+        </div>
+    </div>
+
+    <!-- ユーザー登録モーダル -->
+    <div id="user-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="user-modal-title">新規ユーザー登録</h2>
+            <form id="user-form">
+                <input type="hidden" id="user-id">
+                <div class="form-group">
+                    <label for="user-username">ユーザー名 *</label>
+                    <input type="text" id="user-username" required>
+                </div>
+                <div class="form-group">
+                    <label for="user-fullname">表示名 *</label>
+                    <input type="text" id="user-fullname" required>
+                </div>
+                <div class="form-group" id="password-field">
+                    <label for="user-password">パスワード *</label>
+                    <input type="password" id="user-password" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="user-role">権限 *</label>
+                    <select id="user-role" required>
+                        <option value="user">一般ユーザー</option>
+                        <option value="admin">管理者</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancel-user">キャンセル</button>
+                    <button type="submit" class="btn-primary">登録</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1009,7 +1311,17 @@
         </div>
     </div>
 
+    <script src="crypto.js"></script>
+    <script src="auth.js"></script>
     <script src="database.js"></script>
+    <script src="backup.js"></script>
+    <script src="delivery-advanced.js"></script>
+    <script src="route-map.js"></script>
+    <script src="gps-tracking.js"></script>
+    <script src="google-maps-integration.js"></script>
+    <script src="notification-manager.js"></script>
     <script src="app.js"></script>
+    <script src="app-gps-maps.js"></script>
+    <script src="security-ui.js"></script>
 </body>
 </html>
