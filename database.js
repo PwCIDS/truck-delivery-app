@@ -1,6 +1,6 @@
 class Database {
     constructor() {
-        this.dataVersion = '4.0'; // データバージョン
+        this.dataVersion = '7.0'; // データバージョン（ドライバー顔写真を動物に変更）
         this.checkAndResetData();
         this.deliveries = this.loadData('deliveries') || [];
         this.trucks = this.loadData('trucks') || [];
@@ -33,6 +33,378 @@ class Database {
         return skills;
     }
 
+    generateTruckImage(truckNumber, truckType) {
+        // トラックタイプに応じた色を設定
+        const colors = {
+            '配達': { body: '#4A90E2', accent: '#357ABD', text: '#2C5F8D' },
+            '保冷': { body: '#5CB85C', accent: '#449D44', text: '#357935' },
+            '活魚': { body: '#F39C12', accent: '#E67E22', text: '#D35400' }
+        };
+        const color = colors[truckType] || colors['配達'];
+
+        // トラック番号から一意のパターンを生成
+        const seed = parseInt(truckNumber.replace(/\D/g, ''));
+        const pattern1 = (seed * 13) % 360;
+        const pattern2 = (seed * 17) % 100;
+        const windowStyle = (seed % 3) + 1;
+
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+            <!-- 背景 -->
+            <rect width="400" height="300" fill="#E8F4F8"/>
+            <rect x="0" y="200" width="400" height="100" fill="#7A8A96"/>
+
+            <!-- 道路のライン -->
+            <rect x="0" y="245" width="80" height="10" fill="#FFF" opacity="0.8"/>
+            <rect x="120" y="245" width="80" height="10" fill="#FFF" opacity="0.8"/>
+            <rect x="240" y="245" width="80" height="10" fill="#FFF" opacity="0.8"/>
+
+            <!-- トラック本体（荷台） -->
+            <rect x="80" y="110" width="220" height="90" fill="${color.body}" stroke="${color.accent}" stroke-width="3"/>
+            <rect x="85" y="115" width="210" height="80" fill="${color.accent}" opacity="0.3"/>
+
+            <!-- トラックタイプ表示 -->
+            <text x="190" y="160" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white" text-anchor="middle">${truckType}</text>
+
+            <!-- キャビン -->
+            <path d="M 300,130 L 360,130 L 360,200 L 300,200 Z" fill="${color.accent}" stroke="${color.text}" stroke-width="2"/>
+            <rect x="305" y="135" width="50" height="40" fill="${color.body}" opacity="0.5"/>
+
+            <!-- 窓 -->
+            ${windowStyle === 1 ? '<rect x="310" y="140" width="20" height="25" fill="#B3E5FC" stroke="#0277BD" stroke-width="1"/>' : ''}
+            ${windowStyle === 2 ? '<circle cx="320" cy="152" r="12" fill="#B3E5FC" stroke="#0277BD" stroke-width="1"/>' : ''}
+            ${windowStyle === 3 ? '<path d="M 310,140 L 330,140 L 330,165 L 310,165 Z" fill="#B3E5FC" stroke="#0277BD" stroke-width="1"/>' : ''}
+            <rect x="335" y="140" width="18" height="25" fill="#B3E5FC" stroke="#0277BD" stroke-width="1"/>
+
+            <!-- 車輪 -->
+            <circle cx="130" cy="200" r="25" fill="#2C3E50" stroke="#34495E" stroke-width="3"/>
+            <circle cx="130" cy="200" r="15" fill="#7F8C8D"/>
+            <circle cx="130" cy="200" r="8" fill="#34495E"/>
+
+            <circle cx="250" cy="200" r="25" fill="#2C3E50" stroke="#34495E" stroke-width="3"/>
+            <circle cx="250" cy="200" r="15" fill="#7F8C8D"/>
+            <circle cx="250" cy="200" r="8" fill="#34495E"/>
+
+            <circle cx="340" cy="200" r="25" fill="#2C3E50" stroke="#34495E" stroke-width="3"/>
+            <circle cx="340" cy="200" r="15" fill="#7F8C8D"/>
+            <circle cx="340" cy="200" r="8" fill="#34495E"/>
+
+            <!-- ライト -->
+            <circle cx="355" cy="180" r="6" fill="#FFF9C4" stroke="#F57F17" stroke-width="1"/>
+            <circle cx="355" cy="195" r="5" fill="#FFCDD2" stroke="#C62828" stroke-width="1"/>
+
+            <!-- トラックナンバー -->
+            <rect x="75" y="185" width="60" height="15" fill="white" stroke="${color.text}" stroke-width="2" rx="2"/>
+            <text x="105" y="197" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="${color.text}" text-anchor="middle">${truckNumber}</text>
+
+            <!-- 装飾パターン（トラックごとに異なる） -->
+            <line x1="80" y1="125" x2="300" y2="125" stroke="white" stroke-width="2" opacity="0.5"/>
+            <line x1="80" y1="185" x2="300" y2="185" stroke="white" stroke-width="2" opacity="0.5"/>
+
+            ${pattern2 > 50 ? `<circle cx="${90 + pattern2}" cy="150" r="8" fill="white" opacity="0.3"/>` : ''}
+            ${pattern2 > 70 ? `<rect x="${100 + pattern2}" y="140" width="15" height="15" fill="white" opacity="0.2"/>` : ''}
+        </svg>`;
+
+        return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+    }
+
+    generateDriverPhoto(driverName, driverId) {
+        // ドライバーIDから動物の種類を決定
+        const animals = [
+            'cat', 'dog', 'rabbit', 'bear', 'panda',
+            'fox', 'raccoon', 'hamster', 'koala', 'lion'
+        ];
+        const seed = driverId;
+        const animalType = animals[seed % animals.length];
+        const hue = (seed * 37) % 360;
+
+        let svg = '';
+
+        if (animalType === 'cat') {
+            // 猫
+            const catColor = `hsl(${hue}, 60%, 65%)`;
+            svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <rect width="200" height="200" fill="#E8F4F8"/>
+                <!-- 耳 -->
+                <path d="M 60,50 L 50,20 L 80,50 Z" fill="${catColor}" stroke="#333" stroke-width="2"/>
+                <path d="M 140,50 L 150,20 L 120,50 Z" fill="${catColor}" stroke="#333" stroke-width="2"/>
+                <path d="M 60,45 L 55,25 L 75,45 Z" fill="#FFB6C1"/>
+                <path d="M 140,45 L 145,25 L 125,45 Z" fill="#FFB6C1"/>
+                <!-- 顔 -->
+                <circle cx="100" cy="100" r="50" fill="${catColor}" stroke="#333" stroke-width="2"/>
+                <!-- 目 -->
+                <ellipse cx="80" cy="90" rx="10" ry="15" fill="#FFD700"/>
+                <ellipse cx="80" cy="92" rx="4" ry="10" fill="#000"/>
+                <ellipse cx="120" cy="90" rx="10" ry="15" fill="#FFD700"/>
+                <ellipse cx="120" cy="92" rx="4" ry="10" fill="#000"/>
+                <!-- 鼻 -->
+                <path d="M 100,105 L 95,110 L 100,112 L 105,110 Z" fill="#FF69B4"/>
+                <!-- ヒゲ -->
+                <line x1="50" y1="105" x2="75" y2="105" stroke="#333" stroke-width="1"/>
+                <line x1="50" y1="110" x2="75" y2="108" stroke="#333" stroke-width="1"/>
+                <line x1="125" y1="105" x2="150" y2="105" stroke="#333" stroke-width="1"/>
+                <line x1="125" y1="108" x2="150" y2="110" stroke="#333" stroke-width="1"/>
+                <!-- 口 -->
+                <path d="M 100,112 Q 90,120 85,115" stroke="#333" stroke-width="2" fill="none"/>
+                <path d="M 100,112 Q 110,120 115,115" stroke="#333" stroke-width="2" fill="none"/>
+                <!-- 名前 -->
+                <rect x="10" y="175" width="180" height="20" fill="white" opacity="0.9" rx="3"/>
+                <text x="100" y="189" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#2C3E50" text-anchor="middle">${driverName} 🐱</text>
+            </svg>`;
+        } else if (animalType === 'dog') {
+            // 犬
+            const dogColor = `hsl(${(hue + 30) % 360}, 50%, 60%)`;
+            svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <rect width="200" height="200" fill="#E8F4F8"/>
+                <!-- 耳 -->
+                <ellipse cx="60" cy="80" rx="20" ry="35" fill="${dogColor}" stroke="#333" stroke-width="2"/>
+                <ellipse cx="140" cy="80" rx="20" ry="35" fill="${dogColor}" stroke="#333" stroke-width="2"/>
+                <!-- 顔 -->
+                <circle cx="100" cy="100" r="50" fill="${dogColor}" stroke="#333" stroke-width="2"/>
+                <ellipse cx="100" cy="120" rx="35" ry="30" fill="#F5DEB3"/>
+                <!-- 目 -->
+                <circle cx="80" cy="90" r="8" fill="#000"/>
+                <circle cx="82" cy="88" r="3" fill="white"/>
+                <circle cx="120" cy="90" r="8" fill="#000"/>
+                <circle cx="122" cy="88" r="3" fill="white"/>
+                <!-- 鼻 -->
+                <ellipse cx="100" cy="110" rx="12" ry="10" fill="#333"/>
+                <!-- 舌 -->
+                <ellipse cx="100" cy="130" rx="10" ry="8" fill="#FF6B9D"/>
+                <!-- 口 -->
+                <path d="M 100,110 Q 85,125 80,120" stroke="#333" stroke-width="2" fill="none"/>
+                <path d="M 100,110 Q 115,125 120,120" stroke="#333" stroke-width="2" fill="none"/>
+                <!-- 名前 -->
+                <rect x="10" y="175" width="180" height="20" fill="white" opacity="0.9" rx="3"/>
+                <text x="100" y="189" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#2C3E50" text-anchor="middle">${driverName} 🐶</text>
+            </svg>`;
+        } else if (animalType === 'rabbit') {
+            // うさぎ
+            svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <rect width="200" height="200" fill="#E8F4F8"/>
+                <!-- 耳 -->
+                <ellipse cx="70" cy="40" rx="15" ry="45" fill="#FFE4E1" stroke="#333" stroke-width="2"/>
+                <ellipse cx="70" cy="40" rx="8" ry="35" fill="#FFB6C1"/>
+                <ellipse cx="130" cy="40" rx="15" ry="45" fill="#FFE4E1" stroke="#333" stroke-width="2"/>
+                <ellipse cx="130" cy="40" rx="8" ry="35" fill="#FFB6C1"/>
+                <!-- 顔 -->
+                <circle cx="100" cy="100" r="50" fill="#FFE4E1" stroke="#333" stroke-width="2"/>
+                <!-- 目 -->
+                <circle cx="80" cy="90" r="8" fill="#FF1493"/>
+                <circle cx="82" cy="88" r="3" fill="white"/>
+                <circle cx="120" cy="90" r="8" fill="#FF1493"/>
+                <circle cx="122" cy="88" r="3" fill="white"/>
+                <!-- 鼻 -->
+                <ellipse cx="100" cy="105" rx="6" ry="4" fill="#FF69B4"/>
+                <!-- ヒゲ -->
+                <line x1="60" y1="105" x2="85" y2="105" stroke="#333" stroke-width="1"/>
+                <line x1="60" y1="110" x2="85" y2="108" stroke="#333" stroke-width="1"/>
+                <line x1="115" y1="105" x2="140" y2="105" stroke="#333" stroke-width="1"/>
+                <line x1="115" y1="108" x2="140" y2="110" stroke="#333" stroke-width="1"/>
+                <!-- 前歯 -->
+                <rect x="95" y="115" width="5" height="8" fill="white" stroke="#333" stroke-width="1"/>
+                <rect x="100" y="115" width="5" height="8" fill="white" stroke="#333" stroke-width="1"/>
+                <!-- 名前 -->
+                <rect x="10" y="175" width="180" height="20" fill="white" opacity="0.9" rx="3"/>
+                <text x="100" y="189" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#2C3E50" text-anchor="middle">${driverName} 🐰</text>
+            </svg>`;
+        } else if (animalType === 'bear') {
+            // くま
+            svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <rect width="200" height="200" fill="#E8F4F8"/>
+                <!-- 耳 -->
+                <circle cx="60" cy="60" r="25" fill="#8B4513" stroke="#333" stroke-width="2"/>
+                <circle cx="60" cy="60" r="15" fill="#DEB887"/>
+                <circle cx="140" cy="60" r="25" fill="#8B4513" stroke="#333" stroke-width="2"/>
+                <circle cx="140" cy="60" r="15" fill="#DEB887"/>
+                <!-- 顔 -->
+                <circle cx="100" cy="100" r="55" fill="#8B4513" stroke="#333" stroke-width="2"/>
+                <!-- マズル -->
+                <ellipse cx="100" cy="115" rx="35" ry="30" fill="#DEB887" stroke="#333" stroke-width="2"/>
+                <!-- 目 -->
+                <circle cx="80" cy="85" r="6" fill="#000"/>
+                <circle cx="81" cy="83" r="2" fill="white"/>
+                <circle cx="120" cy="85" r="6" fill="#000"/>
+                <circle cx="121" cy="83" r="2" fill="white"/>
+                <!-- 鼻 -->
+                <ellipse cx="100" cy="115" rx="10" ry="8" fill="#333"/>
+                <!-- 口 -->
+                <path d="M 100,115 Q 90,130 85,125" stroke="#333" stroke-width="2" fill="none"/>
+                <path d="M 100,115 Q 110,130 115,125" stroke="#333" stroke-width="2" fill="none"/>
+                <!-- 名前 -->
+                <rect x="10" y="175" width="180" height="20" fill="white" opacity="0.9" rx="3"/>
+                <text x="100" y="189" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#2C3E50" text-anchor="middle">${driverName} 🐻</text>
+            </svg>`;
+        } else if (animalType === 'panda') {
+            // パンダ
+            svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <rect width="200" height="200" fill="#E8F4F8"/>
+                <!-- 耳 -->
+                <circle cx="60" cy="65" r="22" fill="#000" stroke="#333" stroke-width="2"/>
+                <circle cx="140" cy="65" r="22" fill="#000" stroke="#333" stroke-width="2"/>
+                <!-- 顔 -->
+                <circle cx="100" cy="100" r="50" fill="#FFF" stroke="#333" stroke-width="2"/>
+                <!-- 目の周り（黒） -->
+                <ellipse cx="75" cy="90" rx="18" ry="20" fill="#000"/>
+                <ellipse cx="125" cy="90" rx="18" ry="20" fill="#000"/>
+                <!-- 目 -->
+                <circle cx="75" cy="90" r="8" fill="#FFF"/>
+                <circle cx="75" cy="90" r="5" fill="#000"/>
+                <circle cx="125" cy="90" r="8" fill="#FFF"/>
+                <circle cx="125" cy="90" r="5" fill="#000"/>
+                <!-- 鼻 -->
+                <ellipse cx="100" cy="110" rx="8" ry="6" fill="#000"/>
+                <!-- 口 -->
+                <path d="M 100,110 Q 90,120 85,115" stroke="#000" stroke-width="2" fill="none"/>
+                <path d="M 100,110 Q 110,120 115,115" stroke="#000" stroke-width="2" fill="none"/>
+                <!-- 名前 -->
+                <rect x="10" y="175" width="180" height="20" fill="white" opacity="0.9" rx="3"/>
+                <text x="100" y="189" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#2C3E50" text-anchor="middle">${driverName} 🐼</text>
+            </svg>`;
+        } else if (animalType === 'fox') {
+            // きつね
+            svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <rect width="200" height="200" fill="#E8F4F8"/>
+                <!-- 耳 -->
+                <path d="M 55,50 L 40,10 L 75,60 Z" fill="#FF8C00" stroke="#333" stroke-width="2"/>
+                <path d="M 58,50 L 50,20 L 72,58 Z" fill="#FFF"/>
+                <path d="M 145,50 L 160,10 L 125,60 Z" fill="#FF8C00" stroke="#333" stroke-width="2"/>
+                <path d="M 142,50 L 150,20 L 128,58 Z" fill="#FFF"/>
+                <!-- 顔 -->
+                <circle cx="100" cy="100" r="50" fill="#FF8C00" stroke="#333" stroke-width="2"/>
+                <!-- マズル -->
+                <ellipse cx="100" cy="115" rx="30" ry="25" fill="#FFF"/>
+                <!-- 目 -->
+                <ellipse cx="80" cy="88" rx="8" ry="12" fill="#000"/>
+                <ellipse cx="80" cy="90" rx="3" ry="8" fill="#FFD700"/>
+                <ellipse cx="120" cy="88" rx="8" ry="12" fill="#000"/>
+                <ellipse cx="120" cy="90" rx="3" ry="8" fill="#FFD700"/>
+                <!-- 鼻 -->
+                <path d="M 100,108 L 95,113 L 100,115 L 105,113 Z" fill="#000"/>
+                <!-- 口 -->
+                <path d="M 100,115 Q 90,122 88,118" stroke="#333" stroke-width="2" fill="none"/>
+                <path d="M 100,115 Q 110,122 112,118" stroke="#333" stroke-width="2" fill="none"/>
+                <!-- 名前 -->
+                <rect x="10" y="175" width="180" height="20" fill="white" opacity="0.9" rx="3"/>
+                <text x="100" y="189" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#2C3E50" text-anchor="middle">${driverName} 🦊</text>
+            </svg>`;
+        } else if (animalType === 'raccoon') {
+            // アライグマ
+            svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <rect width="200" height="200" fill="#E8F4F8"/>
+                <!-- 耳 -->
+                <circle cx="65" cy="70" r="20" fill="#8B8B8B" stroke="#333" stroke-width="2"/>
+                <circle cx="65" cy="70" r="12" fill="#FFF"/>
+                <circle cx="135" cy="70" r="20" fill="#8B8B8B" stroke="#333" stroke-width="2"/>
+                <circle cx="135" cy="70" r="12" fill="#FFF"/>
+                <!-- 顔 -->
+                <circle cx="100" cy="100" r="50" fill="#B8B8B8" stroke="#333" stroke-width="2"/>
+                <!-- 目の周り（黒マスク） -->
+                <ellipse cx="75" cy="90" rx="15" ry="18" fill="#000"/>
+                <ellipse cx="125" cy="90" rx="15" ry="18" fill="#000"/>
+                <!-- 目 -->
+                <circle cx="75" cy="90" r="7" fill="#FFF"/>
+                <circle cx="75" cy="90" r="4" fill="#000"/>
+                <circle cx="125" cy="90" r="7" fill="#FFF"/>
+                <circle cx="125" cy="90" r="4" fill="#000"/>
+                <!-- マズル -->
+                <ellipse cx="100" cy="115" rx="25" ry="20" fill="#FFF"/>
+                <!-- 鼻 -->
+                <ellipse cx="100" cy="110" rx="8" ry="6" fill="#000"/>
+                <!-- 口 -->
+                <path d="M 100,110 Q 90,120 88,116" stroke="#333" stroke-width="2" fill="none"/>
+                <path d="M 100,110 Q 110,120 112,116" stroke="#333" stroke-width="2" fill="none"/>
+                <!-- 名前 -->
+                <rect x="10" y="175" width="180" height="20" fill="white" opacity="0.9" rx="3"/>
+                <text x="100" y="189" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#2C3E50" text-anchor="middle">${driverName} 🦝</text>
+            </svg>`;
+        } else if (animalType === 'hamster') {
+            // ハムスター
+            svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <rect width="200" height="200" fill="#E8F4F8"/>
+                <!-- 耳 -->
+                <circle cx="70" cy="70" r="15" fill="#F0E68C" stroke="#333" stroke-width="2"/>
+                <circle cx="70" cy="70" r="8" fill="#FFB6C1"/>
+                <circle cx="130" cy="70" r="15" fill="#F0E68C" stroke="#333" stroke-width="2"/>
+                <circle cx="130" cy="70" r="8" fill="#FFB6C1"/>
+                <!-- 顔 -->
+                <circle cx="100" cy="105" r="50" fill="#F0E68C" stroke="#333" stroke-width="2"/>
+                <!-- ほっぺ -->
+                <ellipse cx="60" cy="110" rx="20" ry="18" fill="#FFE4B5"/>
+                <ellipse cx="140" cy="110" rx="20" ry="18" fill="#FFE4B5"/>
+                <!-- 目 -->
+                <circle cx="80" cy="95" r="5" fill="#000"/>
+                <circle cx="81" cy="93" r="2" fill="white"/>
+                <circle cx="120" cy="95" r="5" fill="#000"/>
+                <circle cx="121" cy="93" r="2" fill="white"/>
+                <!-- 鼻 -->
+                <circle cx="100" cy="110" r="4" fill="#FF69B4"/>
+                <!-- ヒゲ -->
+                <line x1="55" y1="110" x2="80" y2="110" stroke="#333" stroke-width="1"/>
+                <line x1="55" y1="115" x2="80" y2="113" stroke="#333" stroke-width="1"/>
+                <line x1="120" y1="110" x2="145" y2="110" stroke="#333" stroke-width="1"/>
+                <line x1="120" y1="113" x2="145" y2="115" stroke="#333" stroke-width="1"/>
+                <!-- 口 -->
+                <path d="M 100,110 Q 95,118 92,115" stroke="#333" stroke-width="1" fill="none"/>
+                <path d="M 100,110 Q 105,118 108,115" stroke="#333" stroke-width="1" fill="none"/>
+                <!-- 前歯 -->
+                <rect x="97" y="115" width="3" height="5" fill="white" stroke="#333" stroke-width="0.5"/>
+                <rect x="100" y="115" width="3" height="5" fill="white" stroke="#333" stroke-width="0.5"/>
+                <!-- 名前 -->
+                <rect x="10" y="175" width="180" height="20" fill="white" opacity="0.9" rx="3"/>
+                <text x="100" y="189" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#2C3E50" text-anchor="middle">${driverName} 🐹</text>
+            </svg>`;
+        } else if (animalType === 'koala') {
+            // コアラ
+            svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <rect width="200" height="200" fill="#E8F4F8"/>
+                <!-- 耳 -->
+                <ellipse cx="55" cy="70" rx="30" ry="35" fill="#A9A9A9" stroke="#333" stroke-width="2"/>
+                <ellipse cx="55" cy="75" rx="20" ry="25" fill="#FFF"/>
+                <ellipse cx="145" cy="70" rx="30" ry="35" fill="#A9A9A9" stroke="#333" stroke-width="2"/>
+                <ellipse cx="145" cy="75" rx="20" ry="25" fill="#FFF"/>
+                <!-- 顔 -->
+                <circle cx="100" cy="105" r="50" fill="#A9A9A9" stroke="#333" stroke-width="2"/>
+                <!-- 目 -->
+                <circle cx="80" cy="95" r="5" fill="#000"/>
+                <circle cx="120" cy="95" r="5" fill="#000"/>
+                <!-- 鼻 -->
+                <ellipse cx="100" cy="115" rx="15" ry="12" fill="#000"/>
+                <!-- 名前 -->
+                <rect x="10" y="175" width="180" height="20" fill="white" opacity="0.9" rx="3"/>
+                <text x="100" y="189" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#2C3E50" text-anchor="middle">${driverName} 🐨</text>
+            </svg>`;
+        } else {
+            // ライオン
+            svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <rect width="200" height="200" fill="#E8F4F8"/>
+                <!-- たてがみ -->
+                <circle cx="100" cy="100" r="70" fill="#FF8C00" stroke="#333" stroke-width="2"/>
+                <!-- 顔 -->
+                <circle cx="100" cy="100" r="45" fill="#FFD700" stroke="#333" stroke-width="2"/>
+                <!-- 目 -->
+                <circle cx="85" cy="90" r="7" fill="#000"/>
+                <circle cx="86" cy="88" r="2" fill="white"/>
+                <circle cx="115" cy="90" r="7" fill="#000"/>
+                <circle cx="116" cy="88" r="2" fill="white"/>
+                <!-- 鼻 -->
+                <path d="M 100,105 L 95,110 L 100,112 L 105,110 Z" fill="#8B4513"/>
+                <!-- ヒゲ -->
+                <line x1="60" y1="105" x2="85" y2="105" stroke="#333" stroke-width="1"/>
+                <line x1="60" y1="110" x2="85" y2="108" stroke="#333" stroke-width="1"/>
+                <line x1="115" y1="105" x2="140" y2="105" stroke="#333" stroke-width="1"/>
+                <line x1="115" y1="108" x2="140" y2="110" stroke="#333" stroke-width="1"/>
+                <!-- 口 -->
+                <path d="M 100,112 Q 90,120 85,115" stroke="#333" stroke-width="2" fill="none"/>
+                <path d="M 100,112 Q 110,120 115,115" stroke="#333" stroke-width="2" fill="none"/>
+                <!-- 名前 -->
+                <rect x="10" y="175" width="180" height="20" fill="white" opacity="0.9" rx="3"/>
+                <text x="100" y="189" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#2C3E50" text-anchor="middle">${driverName} 🦁</text>
+            </svg>`;
+        }
+
+        return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+    }
+
     loadData(key) {
         const data = localStorage.getItem(key);
         return data ? JSON.parse(data) : null;
@@ -59,14 +431,17 @@ class Database {
                 const month = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
                 const day = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
 
+                const truckNumber = `T-${String(i).padStart(3, '0')}`;
+
                 this.trucks.push({
                     id: i,
-                    number: `T-${String(i).padStart(3, '0')}`,
+                    number: truckNumber,
                     plate: `${plateArea} 500 ${plateKanaChar} ${plateNumber}`,
                     capacity: capacity,
                     purchaseDate: `${year}-${month}-${day}`,
                     status: 'available',
-                    type: type
+                    type: type,
+                    image: this.generateTruckImage(truckNumber, type)
                 });
             }
             this.saveData('trucks', this.trucks);
@@ -136,6 +511,7 @@ class Database {
             for (let i = 1; i <= 60; i++) {
                 const lastName = driverLastNames[Math.floor(Math.random() * driverLastNames.length)];
                 const firstName = driverFirstNames[Math.floor(Math.random() * driverFirstNames.length)];
+                const name = `${lastName} ${firstName}`;
                 const age = Math.floor(Math.random() * 30) + 25; // 25-54歳
                 const license = licenses[Math.floor(Math.random() * licenses.length)];
                 const experience = Math.floor(Math.random() * 20) + 1; // 1-20年
@@ -144,17 +520,32 @@ class Database {
                 const hireMonth = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
                 const hireDay = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
 
+                // 生年月日を計算（年齢から逆算）
+                const currentYear = new Date().getFullYear();
+                const birthYear = currentYear - age;
+                const birthMonth = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
+                const birthDay = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
+                const birthdate = `${birthYear}-${birthMonth}-${birthDay}`;
+
+                // 運転開始年を計算
+                const drivingStartYear = currentYear - experience - Math.floor(Math.random() * 3);
+                const breakYears = Math.floor(Math.random() * 3); // 0-2年の中断
+
                 this.drivers.push({
                     id: i,
                     code: `D-${String(i).padStart(3, '0')}`,
-                    name: `${lastName} ${firstName}`,
+                    name: name,
+                    birthdate: birthdate,
                     age: age,
                     license: license,
+                    drivingStartYear: drivingStartYear,
+                    breakYears: breakYears,
                     experience: experience,
                     phone: phone,
                     hireDate: `${hireYear}-${hireMonth}-${hireDay}`,
                     status: 'available',
-                    specialSkills: this.generateDriverSkills()
+                    specialSkills: this.generateDriverSkills(),
+                    photo: this.generateDriverPhoto(name, i)
                 });
             }
             this.saveData('drivers', this.drivers);
@@ -468,6 +859,11 @@ class Database {
     }
 
     isTruckAvailable(truckId, startDate, startTime, endDate, endTime, excludeDeliveryId = null) {
+        // メンテナンス期間中のチェック
+        if (this.isTruckUnderMaintenance(truckId)) {
+            return false;
+        }
+
         const [newStartHour, newStartMinute] = startTime.split(':').map(Number);
         const [newEndHour, newEndMinute] = endTime.split(':').map(Number);
 
@@ -815,6 +1211,64 @@ class Database {
         });
 
         return alerts;
+    }
+
+    // トラックのメンテナンス情報を取得
+    getTruckMaintenanceInfo(truckId) {
+        const maintenances = this.maintenances.filter(m => m.truckId === truckId);
+
+        // 進行中のメンテナンス（予定ステータスで実施日が今日以降、次回予定日が今日以前のもの）
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = this.formatDate(today);
+
+        const ongoingMaintenance = maintenances.find(m => {
+            if (m.status !== 'scheduled') return false;
+
+            // 実施日が設定されている場合
+            if (m.date) {
+                const maintenanceDate = new Date(m.date);
+                maintenanceDate.setHours(0, 0, 0, 0);
+
+                // 実施日が今日または未来の場合、メンテナンス期間中とみなす
+                if (maintenanceDate >= today) {
+                    // 次回予定日が設定されている場合、その日までメンテナンス中
+                    if (m.nextDate) {
+                        const nextDate = new Date(m.nextDate);
+                        nextDate.setHours(0, 0, 0, 0);
+                        return today <= nextDate;
+                    }
+                    // 次回予定日がない場合、実施日当日のみメンテナンス中
+                    return m.date === todayStr;
+                }
+            }
+
+            return false;
+        });
+
+        // 次回予定のメンテナンス
+        const upcomingMaintenance = maintenances
+            .filter(m => m.status === 'scheduled' && m.nextDate)
+            .sort((a, b) => new Date(a.nextDate) - new Date(b.nextDate))[0];
+
+        // 最新の完了メンテナンス
+        const lastCompletedMaintenance = maintenances
+            .filter(m => m.status === 'completed' && m.date)
+            .sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+
+        return {
+            isUnderMaintenance: !!ongoingMaintenance,
+            ongoingMaintenance,
+            upcomingMaintenance,
+            lastCompletedMaintenance,
+            totalMaintenances: maintenances.length
+        };
+    }
+
+    // トラックがメンテナンス期間中かチェック
+    isTruckUnderMaintenance(truckId) {
+        const info = this.getTruckMaintenanceInfo(truckId);
+        return info.isUnderMaintenance;
     }
 
     // 統計データ生成

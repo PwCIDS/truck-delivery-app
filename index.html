@@ -144,11 +144,13 @@
                 <table id="trucks-table">
                     <thead>
                         <tr>
+                            <th>画像</th>
                             <th>トラックNo</th>
                             <th>車両番号</th>
                             <th>種類</th>
                             <th>最大積載量</th>
                             <th>購入日</th>
+                            <th>メンテナンス情報</th>
                             <th>ステータス</th>
                             <th>操作</th>
                         </tr>
@@ -175,6 +177,7 @@
                 <table id="drivers-table">
                     <thead>
                         <tr>
+                            <th>顔写真</th>
                             <th>ドライバーコード</th>
                             <th>氏名</th>
                             <th>年齢</th>
@@ -415,6 +418,16 @@
                     <button type="button" id="ai-suggest-driver" class="btn-ai" style="margin-top: 10px;">🤖 AIで空きドライバーを提案</button>
                 </div>
 
+                <!-- 配送区分 -->
+                <div class="form-group">
+                    <label>配送区分 *</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="delivery-category" value="配達" checked> 配達</label>
+                        <label><input type="radio" name="delivery-category" value="保冷"> 保冷</label>
+                        <label><input type="radio" name="delivery-category" value="活魚"> 活魚</label>
+                    </div>
+                </div>
+
                 <!-- 出発日時 -->
                 <div class="form-group">
                     <label>出発日時 *</label>
@@ -504,6 +517,13 @@
                     <label for="truck-purchase-date">購入日 *</label>
                     <input type="date" id="truck-purchase-date" required>
                 </div>
+                <div class="form-group">
+                    <label for="truck-image">トラック画像</label>
+                    <input type="file" id="truck-image-upload" accept="image/*" style="display: none;">
+                    <button type="button" id="truck-image-button" class="btn-secondary" style="width: 100%;">📷 画像を選択</button>
+                    <input type="hidden" id="truck-image">
+                    <div id="truck-image-preview" style="margin-top: 10px; text-align: center;"></div>
+                </div>
                 <div class="form-actions">
                     <button type="button" class="btn-secondary" id="cancel-truck">キャンセル</button>
                     <button type="submit" class="btn-primary">登録</button>
@@ -527,11 +547,25 @@
                     <label for="driver-name">氏名 *</label>
                     <input type="text" id="driver-name" required>
                 </div>
+                <div class="form-group">
+                    <label for="driver-photo">顔写真</label>
+                    <input type="file" id="driver-photo-upload" accept="image/*" style="display: none;">
+                    <button type="button" id="driver-photo-button" class="btn-secondary" style="width: 100%;">📷 顔写真を選択</button>
+                    <input type="hidden" id="driver-photo">
+                    <div id="driver-photo-preview" style="margin-top: 10px; text-align: center;"></div>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="driver-age">年齢 *</label>
-                        <input type="number" id="driver-age" min="18" max="70" required>
+                        <label for="driver-birthdate">生年月日 *</label>
+                        <input type="date" id="driver-birthdate" required>
                     </div>
+                    <div class="form-group">
+                        <label>年齢</label>
+                        <input type="text" id="driver-age-display" readonly style="background-color: #f0f0f0;" placeholder="自動計算">
+                        <input type="hidden" id="driver-age">
+                    </div>
+                </div>
+                <div class="form-row">
                     <div class="form-group">
                         <label for="driver-license">免許種別 *</label>
                         <select id="driver-license" required>
@@ -540,10 +574,21 @@
                             <option value="準中型">準中型</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label for="driver-driving-start-year">運転開始年 *</label>
+                        <input type="number" id="driver-driving-start-year" min="1970" max="2030" placeholder="例: 2015" required>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="driver-experience">経験年数 *</label>
-                    <input type="number" id="driver-experience" min="0" max="50" required>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="driver-break-years">中断年数</label>
+                        <input type="number" id="driver-break-years" min="0" max="50" value="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>経験年数</label>
+                        <input type="text" id="driver-experience-display" readonly style="background-color: #f0f0f0;" placeholder="自動計算">
+                        <input type="hidden" id="driver-experience">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="driver-phone">電話番号 *</label>
@@ -802,6 +847,140 @@
                     <div class="shortcut-key">Esc</div>
                     <div class="shortcut-desc">モーダルを閉じる</div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 画像拡大表示モーダル -->
+    <div id="image-modal" class="modal" style="z-index: 2000;">
+        <div class="modal-content" style="max-width: 800px; background: transparent; box-shadow: none;">
+            <span class="close" style="position: absolute; top: 20px; right: 40px; font-size: 40px; color: white; z-index: 2001;">&times;</span>
+            <div style="text-align: center;">
+                <img id="modal-image" src="" style="max-width: 100%; max-height: 80vh; border-radius: 10px; box-shadow: 0 8px 16px rgba(0,0,0,0.3);">
+            </div>
+        </div>
+    </div>
+
+    <!-- トラック配送履歴モーダル -->
+    <div id="truck-history-modal" class="modal">
+        <div class="modal-content modal-content-large">
+            <span class="close">&times;</span>
+            <h2 id="truck-history-title">配送履歴</h2>
+            <div id="truck-history-info" style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;"></div>
+
+            <div class="history-stats" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;">
+                <div class="stat-card">
+                    <div class="stat-label">総配送回数</div>
+                    <div class="stat-value" id="history-total-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">完了</div>
+                    <div class="stat-value" id="history-completed-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">総走行距離</div>
+                    <div class="stat-value" id="history-total-distance">0 km</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">総燃料費</div>
+                    <div class="stat-value" id="history-total-fuel">¥0</div>
+                </div>
+            </div>
+
+            <div class="filter-bar" style="margin-bottom: 15px;">
+                <select id="history-filter-status">
+                    <option value="">全てのステータス</option>
+                    <option value="completed">完了</option>
+                    <option value="inprogress">運転中</option>
+                    <option value="scheduled">予定</option>
+                </select>
+                <input type="date" id="history-filter-start" placeholder="開始日">
+                <span>〜</span>
+                <input type="date" id="history-filter-end" placeholder="終了日">
+                <button id="history-clear-filter" class="btn-secondary">フィルタクリア</button>
+            </div>
+
+            <table id="truck-history-table">
+                <thead>
+                    <tr>
+                        <th>配送ID</th>
+                        <th>出発日時</th>
+                        <th>到着日時</th>
+                        <th>ドライバー</th>
+                        <th>顧客</th>
+                        <th>行先</th>
+                        <th>積載内容</th>
+                        <th>ステータス</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="truck-history-list"></tbody>
+            </table>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="close-truck-history">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ドライバー配送履歴モーダル -->
+    <div id="driver-history-modal" class="modal">
+        <div class="modal-content modal-content-large">
+            <span class="close">&times;</span>
+            <h2 id="driver-history-title">配送履歴</h2>
+            <div id="driver-history-info" style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;"></div>
+
+            <div class="history-stats" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;">
+                <div class="stat-card">
+                    <div class="stat-label">総配送回数</div>
+                    <div class="stat-value" id="driver-history-total-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">完了</div>
+                    <div class="stat-value" id="driver-history-completed-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">総走行距離</div>
+                    <div class="stat-value" id="driver-history-total-distance">0 km</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">総燃料費</div>
+                    <div class="stat-value" id="driver-history-total-fuel">¥0</div>
+                </div>
+            </div>
+
+            <div class="filter-bar" style="margin-bottom: 15px;">
+                <select id="driver-history-filter-status">
+                    <option value="">全てのステータス</option>
+                    <option value="completed">完了</option>
+                    <option value="inprogress">運転中</option>
+                    <option value="scheduled">予定</option>
+                </select>
+                <input type="date" id="driver-history-filter-start" placeholder="開始日">
+                <span>〜</span>
+                <input type="date" id="driver-history-filter-end" placeholder="終了日">
+                <button id="driver-history-clear-filter" class="btn-secondary">フィルタクリア</button>
+            </div>
+
+            <table id="driver-history-table">
+                <thead>
+                    <tr>
+                        <th>配送ID</th>
+                        <th>出発日時</th>
+                        <th>到着日時</th>
+                        <th>トラック</th>
+                        <th>顧客</th>
+                        <th>行先</th>
+                        <th>積載内容</th>
+                        <th>ステータス</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="driver-history-list"></tbody>
+            </table>
+
+            <div class="form-actions">
+                <button type="button" class="btn-secondary" id="close-driver-history">閉じる</button>
             </div>
         </div>
     </div>

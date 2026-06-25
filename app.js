@@ -172,7 +172,13 @@ function showOptions(fieldName, dataType, query) {
         div.className = 'select-option';
 
         if (dataType === 'trucks') {
-            div.innerHTML = `${item.number} - ${item.plate} (${item.capacity}kg) <span class="truck-type-badge type-${item.type || '配達'}">${item.type || '配達'}</span>`;
+            const maintenanceInfo = db.getTruckMaintenanceInfo(item.id);
+            let maintenanceWarning = '';
+            if (maintenanceInfo.isUnderMaintenance) {
+                maintenanceWarning = ' <span style="color: #ffc107; font-weight: bold;">⚠️ メンテナンス中</span>';
+                div.style.opacity = '0.6';
+            }
+            div.innerHTML = `${item.number} - ${item.plate} (${item.capacity}kg) <span class="truck-type-badge type-${item.type || '配達'}">${item.type || '配達'}</span>${maintenanceWarning}`;
         } else if (dataType === 'customers') {
             div.textContent = `${item.code} - ${item.name}`;
         } else if (dataType === 'drivers') {
@@ -636,6 +642,13 @@ function editDelivery(id) {
     document.getElementById('delivery-end-time').value = delivery.endTime;
     document.getElementById('delivery-cargo').value = delivery.cargo;
 
+    // 配送区分を設定
+    const categoryValue = delivery.category || '配達';
+    const categoryRadio = document.querySelector(`input[name="delivery-category"][value="${categoryValue}"]`);
+    if (categoryRadio) {
+        categoryRadio.checked = true;
+    }
+
     document.getElementById('status-field').style.display = 'block';
     document.getElementById('delivery-status').value = delivery.status;
 
@@ -666,6 +679,7 @@ function handleDeliverySubmit(e) {
     const endDate = document.getElementById('delivery-end-date').value;
     const endTime = document.getElementById('delivery-end-time').value;
     const cargo = document.getElementById('delivery-cargo').value;
+    const category = document.querySelector('input[name="delivery-category"]:checked').value;
 
     if (!customerId) {
         alert('顧客を選択してください。');
@@ -703,6 +717,39 @@ function handleDeliverySubmit(e) {
         }
     }
 
+    // ドライバーのスキルと配送区分のマッチングチェック
+    if (driverId) {
+        const driver = db.getDriverById(driverId);
+
+        if (driver) {
+            // 活魚の場合、活魚車運転スキルが必要
+            if (category === '活魚') {
+                if (!driver.specialSkills || !driver.specialSkills.includes('活魚車運転')) {
+                    alert('活魚配送には「活魚車運転」スキルを持つドライバーを選択してください。\n\n現在選択中のドライバー: ' + driver.name + '\n必要なスキル: 活魚車運転');
+                    return;
+                }
+            }
+
+            // 保冷の場合、保冷車運転スキルが必要
+            if (category === '保冷') {
+                if (!driver.specialSkills || !driver.specialSkills.includes('保冷車運転')) {
+                    alert('保冷配送には「保冷車運転」スキルを持つドライバーを選択してください。\n\n現在選択中のドライバー: ' + driver.name + '\n必要なスキル: 保冷車運転');
+                    return;
+                }
+            }
+        }
+    }
+
+    // トラックタイプと配送区分のマッチングチェック
+    if (truckId) {
+        const truck = db.getTruckById(truckId);
+
+        if (truck && truck.type !== category) {
+            alert('配送区分とトラックの種類が一致しません。\n\n配送区分: ' + category + '\nトラック種類: ' + truck.type + '\n\n同じ種類を選択してください。');
+            return;
+        }
+    }
+
     const deliveryData = {
         truckId,
         driverId,
@@ -712,7 +759,8 @@ function handleDeliverySubmit(e) {
         endDate,
         endTime,
         destinations: [...destinations],
-        cargo
+        cargo,
+        category
     };
 
     if (id) {
@@ -736,6 +784,27 @@ function initTruckManagement() {
 
     document.getElementById('truck-form').addEventListener('submit', handleTruckSubmit);
     document.getElementById('search-truck').addEventListener('input', filterTrucks);
+
+    // 画像アップロード処理
+    document.getElementById('truck-image-button').addEventListener('click', function() {
+        document.getElementById('truck-image-upload').click();
+    });
+
+    document.getElementById('truck-image-upload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const imageData = event.target.result;
+                document.getElementById('truck-image').value = imageData;
+
+                // プレビュー表示
+                const preview = document.getElementById('truck-image-preview');
+                preview.innerHTML = `<img src="${imageData}" style="max-width: 200px; max-height: 150px; border-radius: 5px; border: 2px solid #ddd;">`;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
 }
 
 function loadTrucksList() {
@@ -744,15 +813,63 @@ function loadTrucksList() {
     tbody.innerHTML = '';
 
     trucks.forEach(truck => {
+        // メンテナンス情報を取得
+        const maintenanceInfo = db.getTruckMaintenanceInfo(truck.id);
+
+        // メンテナンス情報の表示内容を構築
+        let maintenanceDisplay = '';
+        if (maintenanceInfo.isUnderMaintenance && maintenanceInfo.ongoingMaintenance) {
+            const m = maintenanceInfo.ongoingMaintenance;
+            maintenanceDisplay = `<div class="maintenance-status maintenance-ongoing">
+                <strong>⚠️ メンテナンス中</strong><br>
+                <span style="font-size: 12px;">${m.type} (${m.date})</span>
+            </div>`;
+        } else if (maintenanceInfo.upcomingMaintenance) {
+            const m = maintenanceInfo.upcomingMaintenance;
+            maintenanceDisplay = `<div class="maintenance-status maintenance-upcoming">
+                <strong>次回:</strong> ${m.type}<br>
+                <span style="font-size: 12px;">${m.nextDate}</span>
+            </div>`;
+        } else if (maintenanceInfo.lastCompletedMaintenance) {
+            const m = maintenanceInfo.lastCompletedMaintenance;
+            maintenanceDisplay = `<div class="maintenance-status maintenance-completed">
+                <strong>前回:</strong> ${m.type}<br>
+                <span style="font-size: 12px;">${m.date}</span>
+            </div>`;
+        } else {
+            maintenanceDisplay = '<span style="color: #999;">記録なし</span>';
+        }
+
+        // ステータスの自動判定
+        let truckStatus = truck.status;
+        let statusText = truck.status === 'available' ? '利用可能' : '使用中';
+
+        // メンテナンス期間中の場合、強制的に利用不可
+        if (maintenanceInfo.isUnderMaintenance) {
+            truckStatus = 'maintenance';
+            statusText = 'メンテナンス中';
+        }
+
+        // 画像表示
+        let imageDisplay = '';
+        if (truck.image) {
+            imageDisplay = `<img src="${truck.image}" class="truck-thumbnail" alt="${truck.number}" onclick="showImageModal('${truck.image}')">`;
+        } else {
+            imageDisplay = '<div class="truck-thumbnail-placeholder">📷</div>';
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
+            <td>${imageDisplay}</td>
             <td>${truck.number}</td>
             <td>${truck.plate}</td>
             <td><span class="truck-type-badge type-${truck.type || '配達'}">${truck.type || '配達'}</span></td>
             <td>${truck.capacity} kg</td>
             <td>${truck.purchaseDate}</td>
-            <td><span class="status-badge status-${truck.status}">${truck.status === 'available' ? '利用可能' : '使用中'}</span></td>
+            <td>${maintenanceDisplay}</td>
+            <td><span class="status-badge status-${truckStatus}">${statusText}</span></td>
             <td>
+                <button class="btn-secondary" onclick="showTruckHistory(${truck.id})" title="配送履歴">📋 詳細</button>
                 <button class="btn-edit" onclick="editTruck(${truck.id})">編集</button>
                 <button class="btn-danger" onclick="deleteTruck(${truck.id})">削除</button>
             </td>
@@ -768,6 +885,8 @@ function openTruckModal() {
 
     document.getElementById('truck-modal-title').textContent = '新規トラック登録';
     document.getElementById('truck-id').value = '';
+    document.getElementById('truck-image').value = '';
+    document.getElementById('truck-image-preview').innerHTML = '';
 
     modal.classList.add('active');
 }
@@ -789,6 +908,15 @@ function editTruck(id) {
     document.getElementById('truck-type').value = truck.type || '配達';
     document.getElementById('truck-capacity').value = truck.capacity;
     document.getElementById('truck-purchase-date').value = truck.purchaseDate;
+
+    // 画像を設定
+    document.getElementById('truck-image').value = truck.image || '';
+    const preview = document.getElementById('truck-image-preview');
+    if (truck.image) {
+        preview.innerHTML = `<img src="${truck.image}" style="max-width: 200px; max-height: 150px; border-radius: 5px; border: 2px solid #ddd;">`;
+    } else {
+        preview.innerHTML = '';
+    }
 
     modal.classList.add('active');
 }
@@ -813,7 +941,8 @@ function handleTruckSubmit(e) {
         plate: document.getElementById('truck-plate').value,
         type: document.getElementById('truck-type').value,
         capacity: parseInt(document.getElementById('truck-capacity').value),
-        purchaseDate: document.getElementById('truck-purchase-date').value
+        purchaseDate: document.getElementById('truck-purchase-date').value,
+        image: document.getElementById('truck-image').value || null
     };
 
     if (id) {
@@ -836,6 +965,75 @@ function initDriverManagement() {
     document.getElementById('driver-form').addEventListener('submit', handleDriverSubmit);
     document.getElementById('search-driver').addEventListener('input', filterDrivers);
     document.getElementById('filter-driver-license').addEventListener('change', filterDrivers);
+
+    // 顔写真アップロード処理
+    document.getElementById('driver-photo-button').addEventListener('click', function() {
+        document.getElementById('driver-photo-upload').click();
+    });
+
+    document.getElementById('driver-photo-upload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const imageData = event.target.result;
+                document.getElementById('driver-photo').value = imageData;
+
+                // プレビュー表示
+                const preview = document.getElementById('driver-photo-preview');
+                preview.innerHTML = `<img src="${imageData}" style="max-width: 150px; max-height: 150px; border-radius: 50%; border: 3px solid #ddd; object-fit: cover;">`;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // 生年月日から年齢を自動計算
+    document.getElementById('driver-birthdate').addEventListener('change', function() {
+        calculateAge();
+    });
+
+    // 運転開始年と中断年数から経験年数を自動計算
+    document.getElementById('driver-driving-start-year').addEventListener('input', calculateExperience);
+    document.getElementById('driver-break-years').addEventListener('input', calculateExperience);
+}
+
+function calculateAge() {
+    const birthdate = document.getElementById('driver-birthdate').value;
+    if (!birthdate) {
+        document.getElementById('driver-age-display').value = '';
+        document.getElementById('driver-age').value = '';
+        return;
+    }
+
+    const birth = new Date(birthdate);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+
+    document.getElementById('driver-age-display').value = age + '歳';
+    document.getElementById('driver-age').value = age;
+}
+
+function calculateExperience() {
+    const startYear = parseInt(document.getElementById('driver-driving-start-year').value) || 0;
+    const breakYears = parseInt(document.getElementById('driver-break-years').value) || 0;
+
+    if (!startYear) {
+        document.getElementById('driver-experience-display').value = '';
+        document.getElementById('driver-experience').value = '';
+        return;
+    }
+
+    const currentYear = new Date().getFullYear();
+    const totalYears = currentYear - startYear;
+    const experience = Math.max(0, totalYears - breakYears);
+
+    document.getElementById('driver-experience-display').value = experience + '年';
+    document.getElementById('driver-experience').value = experience;
 }
 
 function loadDriversList() {
@@ -848,8 +1046,17 @@ function loadDriversList() {
             ? driver.specialSkills.map(skill => `<span class="skill-badge">${skill}</span>`).join(' ')
             : '-';
 
+        // 顔写真表示
+        let photoDisplay = '';
+        if (driver.photo) {
+            photoDisplay = `<img src="${driver.photo}" class="driver-photo-thumbnail" alt="${driver.name}" onclick="showImageModal('${driver.photo}')">`;
+        } else {
+            photoDisplay = '<div class="driver-photo-placeholder">👤</div>';
+        }
+
         const tr = document.createElement('tr');
         tr.innerHTML = `
+            <td>${photoDisplay}</td>
             <td>${driver.code}</td>
             <td>${driver.name}</td>
             <td>${driver.age}歳</td>
@@ -859,6 +1066,7 @@ function loadDriversList() {
             <td>${driver.phone}</td>
             <td><span class="status-badge status-${driver.status}">${driver.status === 'available' ? '利用可能' : '配送中'}</span></td>
             <td>
+                <button class="btn-secondary" onclick="showDriverHistory(${driver.id})" title="配送履歴">📋 詳細</button>
                 <button class="btn-edit" onclick="editDriver(${driver.id})">編集</button>
                 <button class="btn-danger" onclick="deleteDriver(${driver.id})">削除</button>
             </td>
@@ -878,6 +1086,14 @@ function openDriverModal() {
     // チェックボックスをクリア
     document.querySelectorAll('#driver-form input[type="checkbox"]').forEach(cb => cb.checked = false);
 
+    // 写真と計算フィールドをクリア
+    document.getElementById('driver-photo').value = '';
+    document.getElementById('driver-photo-preview').innerHTML = '';
+    document.getElementById('driver-age-display').value = '';
+    document.getElementById('driver-age').value = '';
+    document.getElementById('driver-experience-display').value = '';
+    document.getElementById('driver-experience').value = '';
+
     modal.classList.add('active');
 }
 
@@ -895,11 +1111,31 @@ function editDriver(id) {
     document.getElementById('driver-id').value = driver.id;
     document.getElementById('driver-code').value = driver.code;
     document.getElementById('driver-name').value = driver.name;
+
+    // 生年月日を設定
+    document.getElementById('driver-birthdate').value = driver.birthdate || '';
     document.getElementById('driver-age').value = driver.age;
+    document.getElementById('driver-age-display').value = driver.age ? driver.age + '歳' : '';
+
     document.getElementById('driver-license').value = driver.license;
+
+    // 運転開始年と中断年数を設定
+    document.getElementById('driver-driving-start-year').value = driver.drivingStartYear || '';
+    document.getElementById('driver-break-years').value = driver.breakYears || 0;
     document.getElementById('driver-experience').value = driver.experience;
+    document.getElementById('driver-experience-display').value = driver.experience ? driver.experience + '年' : '';
+
     document.getElementById('driver-phone').value = driver.phone;
     document.getElementById('driver-hire-date').value = driver.hireDate;
+
+    // 顔写真を設定
+    document.getElementById('driver-photo').value = driver.photo || '';
+    const preview = document.getElementById('driver-photo-preview');
+    if (driver.photo) {
+        preview.innerHTML = `<img src="${driver.photo}" style="max-width: 150px; max-height: 150px; border-radius: 50%; border: 3px solid #ddd; object-fit: cover;">`;
+    } else {
+        preview.innerHTML = '';
+    }
 
     // スキルのチェックボックスを設定
     document.querySelectorAll('#driver-form input[type="checkbox"]').forEach(cb => {
@@ -934,12 +1170,16 @@ function handleDriverSubmit(e) {
     const driverData = {
         code: document.getElementById('driver-code').value,
         name: document.getElementById('driver-name').value,
+        birthdate: document.getElementById('driver-birthdate').value,
         age: parseInt(document.getElementById('driver-age').value),
         license: document.getElementById('driver-license').value,
+        drivingStartYear: parseInt(document.getElementById('driver-driving-start-year').value),
+        breakYears: parseInt(document.getElementById('driver-break-years').value) || 0,
         experience: parseInt(document.getElementById('driver-experience').value),
         phone: document.getElementById('driver-phone').value,
         hireDate: document.getElementById('driver-hire-date').value,
-        specialSkills: specialSkills
+        specialSkills: specialSkills,
+        photo: document.getElementById('driver-photo').value || null
     };
 
     if (id) {
@@ -2252,4 +2492,351 @@ function confirmAISuggestionGeneric() {
         selectOption('delivery-truck', 'trucks', aiSuggestedTruck);
     }
     closeAISuggestionModal();
+}
+
+// 画像拡大表示モーダル
+function showImageModal(imageSrc) {
+    const modal = document.getElementById('image-modal');
+    const modalImage = document.getElementById('modal-image');
+    modalImage.src = imageSrc;
+    modal.classList.add('active');
+}
+
+function closeImageModal() {
+    document.getElementById('image-modal').classList.remove('active');
+}
+
+// 画像モーダルの初期化
+document.addEventListener('DOMContentLoaded', function() {
+    const imageModal = document.getElementById('image-modal');
+    if (imageModal) {
+        imageModal.querySelector('.close').addEventListener('click', closeImageModal);
+        imageModal.addEventListener('click', function(e) {
+            if (e.target === imageModal) {
+                closeImageModal();
+            }
+        });
+    }
+
+    // トラック配送履歴モーダルの初期化
+    const historyModal = document.getElementById('truck-history-modal');
+    if (historyModal) {
+        historyModal.querySelector('.close').addEventListener('click', closeTruckHistoryModal);
+        document.getElementById('close-truck-history').addEventListener('click', closeTruckHistoryModal);
+        document.getElementById('history-filter-status').addEventListener('change', filterTruckHistory);
+        document.getElementById('history-filter-start').addEventListener('change', filterTruckHistory);
+        document.getElementById('history-filter-end').addEventListener('change', filterTruckHistory);
+        document.getElementById('history-clear-filter').addEventListener('click', clearTruckHistoryFilter);
+    }
+
+    // ドライバー配送履歴モーダルの初期化
+    const driverHistoryModal = document.getElementById('driver-history-modal');
+    if (driverHistoryModal) {
+        driverHistoryModal.querySelector('.close').addEventListener('click', closeDriverHistoryModal);
+        document.getElementById('close-driver-history').addEventListener('click', closeDriverHistoryModal);
+        document.getElementById('driver-history-filter-status').addEventListener('change', filterDriverHistory);
+        document.getElementById('driver-history-filter-start').addEventListener('change', filterDriverHistory);
+        document.getElementById('driver-history-filter-end').addEventListener('change', filterDriverHistory);
+        document.getElementById('driver-history-clear-filter').addEventListener('click', clearDriverHistoryFilter);
+    }
+});
+
+// トラック配送履歴表示
+let currentTruckHistoryId = null;
+let currentTruckHistoryDeliveries = [];
+
+function showTruckHistory(truckId) {
+    currentTruckHistoryId = truckId;
+    const truck = db.getTruckById(truckId);
+    if (!truck) return;
+
+    const modal = document.getElementById('truck-history-modal');
+
+    // トラック情報表示
+    const maintenanceInfo = db.getTruckMaintenanceInfo(truckId);
+    let imageDisplay = truck.image ? `<img src="${truck.image}" style="width: 100px; height: 75px; object-fit: cover; border-radius: 5px; margin-right: 15px; float: left;">` : '';
+
+    document.getElementById('truck-history-info').innerHTML = `
+        ${imageDisplay}
+        <div>
+            <h3 style="margin: 0 0 5px 0;">${truck.number} - ${truck.plate}</h3>
+            <p style="margin: 5px 0;">
+                <span class="truck-type-badge type-${truck.type || '配達'}">${truck.type || '配達'}</span>
+                <span style="margin-left: 10px;">最大積載量: ${truck.capacity}kg</span>
+                <span style="margin-left: 10px;">購入日: ${truck.purchaseDate}</span>
+            </p>
+        </div>
+        <div style="clear: both;"></div>
+    `;
+
+    document.getElementById('truck-history-title').textContent = `配送履歴 - ${truck.number}`;
+
+    // 配送履歴を取得
+    const allDeliveries = db.getAllDeliveries();
+    currentTruckHistoryDeliveries = allDeliveries.filter(d => d.truckId === truckId);
+
+    // 統計計算
+    const completedDeliveries = currentTruckHistoryDeliveries.filter(d => d.status === 'completed');
+    const totalDistance = completedDeliveries.reduce((sum, d) => sum + (d.distance || 0), 0);
+    const totalFuel = completedDeliveries.reduce((sum, d) => sum + (d.fuelCost || 0), 0);
+
+    document.getElementById('history-total-count').textContent = currentTruckHistoryDeliveries.length;
+    document.getElementById('history-completed-count').textContent = completedDeliveries.length;
+    document.getElementById('history-total-distance').textContent = totalDistance.toLocaleString() + ' km';
+    document.getElementById('history-total-fuel').textContent = '¥' + totalFuel.toLocaleString();
+
+    // フィルタをクリア
+    document.getElementById('history-filter-status').value = '';
+    document.getElementById('history-filter-start').value = '';
+    document.getElementById('history-filter-end').value = '';
+
+    // 配送履歴リストを表示
+    renderTruckHistory(currentTruckHistoryDeliveries);
+
+    modal.classList.add('active');
+}
+
+function renderTruckHistory(deliveries) {
+    const tbody = document.getElementById('truck-history-list');
+    tbody.innerHTML = '';
+
+    // 日付の新しい順にソート
+    deliveries.sort((a, b) => {
+        const dateA = new Date(a.startDate + ' ' + a.startTime);
+        const dateB = new Date(b.startDate + ' ' + b.startTime);
+        return dateB - dateA;
+    });
+
+    const drivers = db.getAllDrivers();
+    const customers = db.getAllCustomers();
+
+    deliveries.forEach(delivery => {
+        const driver = drivers.find(d => d.id === delivery.driverId);
+        const customer = customers.find(c => c.id === delivery.customerId);
+
+        const detailedStatusText = {
+            'preparing': '準備中',
+            'loading': '積込中',
+            'intransit': '配送中',
+            'unloading': '荷卸中',
+            'completed': '完了',
+            'scheduled': '予定',
+            'inprogress': '運転中'
+        }[delivery.detailedStatus || delivery.status];
+
+        const destText = delivery.destinations ? delivery.destinations.join(' → ') : '';
+        const startDateTime = `${delivery.startDate} ${delivery.startTime}`;
+        const endDateTime = `${delivery.endDate} ${delivery.endTime}`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>#${delivery.id}</td>
+            <td>${startDateTime}</td>
+            <td>${endDateTime}</td>
+            <td>${driver ? driver.name : '<span style="color: #999;">未選択</span>'}</td>
+            <td>${customer ? customer.name : ''}</td>
+            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${destText}</td>
+            <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${delivery.cargo}</td>
+            <td><span class="status-badge status-${delivery.detailedStatus || delivery.status}">${detailedStatusText}</span></td>
+            <td>
+                <button class="btn-secondary" onclick="editDelivery(${delivery.id})" title="編集">✏️</button>
+                <button class="btn-secondary" onclick="printDeliveryInstruction(${delivery.id})" title="配送指示書">🖨</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    if (deliveries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #999; padding: 40px;">配送履歴がありません</td></tr>';
+    }
+}
+
+function filterTruckHistory() {
+    const statusFilter = document.getElementById('history-filter-status').value;
+    const startDateFilter = document.getElementById('history-filter-start').value;
+    const endDateFilter = document.getElementById('history-filter-end').value;
+
+    let filtered = [...currentTruckHistoryDeliveries];
+
+    if (statusFilter) {
+        filtered = filtered.filter(d => d.status === statusFilter || d.detailedStatus === statusFilter);
+    }
+
+    if (startDateFilter) {
+        filtered = filtered.filter(d => d.startDate >= startDateFilter);
+    }
+
+    if (endDateFilter) {
+        filtered = filtered.filter(d => d.startDate <= endDateFilter);
+    }
+
+    renderTruckHistory(filtered);
+}
+
+function clearTruckHistoryFilter() {
+    document.getElementById('history-filter-status').value = '';
+    document.getElementById('history-filter-start').value = '';
+    document.getElementById('history-filter-end').value = '';
+    renderTruckHistory(currentTruckHistoryDeliveries);
+}
+
+function closeTruckHistoryModal() {
+    document.getElementById('truck-history-modal').classList.remove('active');
+    currentTruckHistoryId = null;
+    currentTruckHistoryDeliveries = [];
+}
+
+// ドライバー配送履歴表示
+let currentDriverHistoryId = null;
+let currentDriverHistoryDeliveries = [];
+
+function showDriverHistory(driverId) {
+    currentDriverHistoryId = driverId;
+    const driver = db.getDriverById(driverId);
+    if (!driver) return;
+
+    const modal = document.getElementById('driver-history-modal');
+
+    // ドライバー情報表示
+    let photoDisplay = driver.photo ? `<img src="${driver.photo}" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid #ddd; margin-right: 15px; float: left;">` : '';
+
+    const skillsHtml = driver.specialSkills && driver.specialSkills.length > 0
+        ? driver.specialSkills.map(skill => `<span class="skill-badge">${skill}</span>`).join(' ')
+        : 'なし';
+
+    document.getElementById('driver-history-info').innerHTML = `
+        ${photoDisplay}
+        <div>
+            <h3 style="margin: 0 0 5px 0;">${driver.code} - ${driver.name}</h3>
+            <p style="margin: 5px 0;">
+                <strong>年齢:</strong> ${driver.age}歳
+                <span style="margin-left: 15px;"><strong>免許:</strong> ${driver.license}</span>
+                <span style="margin-left: 15px;"><strong>経験年数:</strong> ${driver.experience}年</span>
+            </p>
+            <p style="margin: 5px 0;">
+                <strong>電話:</strong> ${driver.phone}
+                <span style="margin-left: 15px;"><strong>入社日:</strong> ${driver.hireDate}</span>
+            </p>
+            <p style="margin: 5px 0;">
+                <strong>特殊スキル:</strong> ${skillsHtml}
+            </p>
+        </div>
+        <div style="clear: both;"></div>
+    `;
+
+    document.getElementById('driver-history-title').textContent = `配送履歴 - ${driver.name}`;
+
+    // 配送履歴を取得
+    const allDeliveries = db.getAllDeliveries();
+    currentDriverHistoryDeliveries = allDeliveries.filter(d => d.driverId === driverId);
+
+    // 統計計算
+    const completedDeliveries = currentDriverHistoryDeliveries.filter(d => d.status === 'completed');
+    const totalDistance = completedDeliveries.reduce((sum, d) => sum + (d.distance || 0), 0);
+    const totalFuel = completedDeliveries.reduce((sum, d) => sum + (d.fuelCost || 0), 0);
+
+    document.getElementById('driver-history-total-count').textContent = currentDriverHistoryDeliveries.length;
+    document.getElementById('driver-history-completed-count').textContent = completedDeliveries.length;
+    document.getElementById('driver-history-total-distance').textContent = totalDistance.toLocaleString() + ' km';
+    document.getElementById('driver-history-total-fuel').textContent = '¥' + totalFuel.toLocaleString();
+
+    // フィルタをクリア
+    document.getElementById('driver-history-filter-status').value = '';
+    document.getElementById('driver-history-filter-start').value = '';
+    document.getElementById('driver-history-filter-end').value = '';
+
+    // 配送履歴リストを表示
+    renderDriverHistory(currentDriverHistoryDeliveries);
+
+    modal.classList.add('active');
+}
+
+function renderDriverHistory(deliveries) {
+    const tbody = document.getElementById('driver-history-list');
+    tbody.innerHTML = '';
+
+    // 日付の新しい順にソート
+    deliveries.sort((a, b) => {
+        const dateA = new Date(a.startDate + ' ' + a.startTime);
+        const dateB = new Date(b.startDate + ' ' + b.startTime);
+        return dateB - dateA;
+    });
+
+    const trucks = db.getAllTrucks();
+    const customers = db.getAllCustomers();
+
+    deliveries.forEach(delivery => {
+        const truck = trucks.find(t => t.id === delivery.truckId);
+        const customer = customers.find(c => c.id === delivery.customerId);
+
+        const detailedStatusText = {
+            'preparing': '準備中',
+            'loading': '積込中',
+            'intransit': '配送中',
+            'unloading': '荷卸中',
+            'completed': '完了',
+            'scheduled': '予定',
+            'inprogress': '運転中'
+        }[delivery.detailedStatus || delivery.status];
+
+        const destText = delivery.destinations ? delivery.destinations.join(' → ') : '';
+        const startDateTime = `${delivery.startDate} ${delivery.startTime}`;
+        const endDateTime = `${delivery.endDate} ${delivery.endTime}`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>#${delivery.id}</td>
+            <td>${startDateTime}</td>
+            <td>${endDateTime}</td>
+            <td>${truck ? `${truck.number} <span class="truck-type-badge type-${truck.type || '配達'}" style="font-size: 10px; padding: 2px 6px;">${truck.type || '配達'}</span>` : '<span style="color: #999;">未選択</span>'}</td>
+            <td>${customer ? customer.name : ''}</td>
+            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${destText}</td>
+            <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${delivery.cargo}</td>
+            <td><span class="status-badge status-${delivery.detailedStatus || delivery.status}">${detailedStatusText}</span></td>
+            <td>
+                <button class="btn-secondary" onclick="editDelivery(${delivery.id})" title="編集">✏️</button>
+                <button class="btn-secondary" onclick="printDeliveryInstruction(${delivery.id})" title="配送指示書">🖨</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    if (deliveries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #999; padding: 40px;">配送履歴がありません</td></tr>';
+    }
+}
+
+function filterDriverHistory() {
+    const statusFilter = document.getElementById('driver-history-filter-status').value;
+    const startDateFilter = document.getElementById('driver-history-filter-start').value;
+    const endDateFilter = document.getElementById('driver-history-filter-end').value;
+
+    let filtered = [...currentDriverHistoryDeliveries];
+
+    if (statusFilter) {
+        filtered = filtered.filter(d => d.status === statusFilter || d.detailedStatus === statusFilter);
+    }
+
+    if (startDateFilter) {
+        filtered = filtered.filter(d => d.startDate >= startDateFilter);
+    }
+
+    if (endDateFilter) {
+        filtered = filtered.filter(d => d.startDate <= endDateFilter);
+    }
+
+    renderDriverHistory(filtered);
+}
+
+function clearDriverHistoryFilter() {
+    document.getElementById('driver-history-filter-status').value = '';
+    document.getElementById('driver-history-filter-start').value = '';
+    document.getElementById('driver-history-filter-end').value = '';
+    renderDriverHistory(currentDriverHistoryDeliveries);
+}
+
+function closeDriverHistoryModal() {
+    document.getElementById('driver-history-modal').classList.remove('active');
+    currentDriverHistoryId = null;
+    currentDriverHistoryDeliveries = [];
 }
