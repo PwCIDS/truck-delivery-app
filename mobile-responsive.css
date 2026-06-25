@@ -1,0 +1,484 @@
+/* モバイル対応・レスポンシブデザイン */
+
+/* タブレット以下 (768px以下) */
+@media screen and (max-width: 768px) {
+    /* ヘッダー */
+    header {
+        padding: 10px;
+    }
+
+    .header-top {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .header-top h1 {
+        font-size: 20px;
+    }
+
+    /* ナビゲーション */
+    nav {
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+
+    .nav-btn {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
+    /* セクションヘッダー */
+    .section-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+
+    .header-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .header-actions button {
+        width: 100%;
+    }
+
+    /* ダッシュボード */
+    .dashboard-container {
+        grid-template-columns: 1fr;
+    }
+
+    .notification-card {
+        padding: 15px;
+    }
+
+    /* 統計カード */
+    .stats-container {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    /* テーブル */
+    .table-container {
+        overflow-x: auto;
+    }
+
+    table {
+        font-size: 12px;
+    }
+
+    table th,
+    table td {
+        padding: 8px 5px;
+    }
+
+    /* 一部の列を非表示 */
+    .hide-mobile {
+        display: none !important;
+    }
+
+    /* フィルターバー */
+    .filter-bar {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .filter-bar input,
+    .filter-bar select {
+        width: 100%;
+    }
+
+    .date-filter-bar {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    /* カレンダー */
+    .calendar-matrix {
+        overflow-x: auto;
+    }
+
+    .calendar-controls {
+        flex-wrap: wrap;
+    }
+
+    .calendar-type-toggle {
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .truck-type-filter {
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    /* モーダル */
+    .modal-content {
+        width: 95%;
+        max-height: 90vh;
+        margin: 5% auto;
+    }
+
+    .form-row {
+        flex-direction: column;
+    }
+
+    .form-group {
+        width: 100%;
+    }
+
+    /* ボタン */
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger {
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+
+    /* 配送詳細 */
+    #delivery-details {
+        grid-template-columns: 1fr;
+    }
+
+    /* GPS追跡 */
+    #google-map-container,
+    #gps-map-container {
+        height: 400px;
+    }
+
+    /* 地図情報 */
+    #route-info-container {
+        font-size: 14px;
+    }
+
+    #route-info-container table {
+        font-size: 12px;
+    }
+}
+
+/* スマートフォン (480px以下) */
+@media screen and (max-width: 480px) {
+    /* さらに小さい画面用の調整 */
+    .header-top h1 {
+        font-size: 18px;
+    }
+
+    .nav-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+
+    .notification-card h3 {
+        font-size: 16px;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-value {
+        font-size: 24px;
+    }
+
+    table {
+        font-size: 11px;
+    }
+
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    /* アクションボタンをアイコンのみに */
+    .action-buttons button {
+        padding: 8px;
+        font-size: 16px;
+    }
+
+    /* モーダルをフルスクリーンに */
+    .modal-content {
+        width: 100%;
+        height: 100%;
+        max-height: 100vh;
+        margin: 0;
+        border-radius: 0;
+    }
+}
+
+/* タッチデバイス用の改善 */
+@media (hover: none) and (pointer: coarse) {
+    /* タップしやすいボタンサイズ */
+    button,
+    .nav-btn,
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* リンクのタップエリアを拡大 */
+    a {
+        padding: 5px;
+    }
+
+    /* ホバー効果を削除 */
+    button:hover,
+    .nav-btn:hover {
+        transform: none;
+    }
+
+    /* タップ時のフィードバック */
+    button:active,
+    .nav-btn:active {
+        opacity: 0.7;
+        transform: scale(0.98);
+    }
+}
+
+/* ランドスケープモード（横向き）*/
+@media screen and (max-width: 768px) and (orientation: landscape) {
+    .dashboard-container {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .stats-container {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    #google-map-container,
+    #gps-map-container {
+        height: 300px;
+    }
+}
+
+/* プリント用スタイル */
+@media print {
+    /* ナビゲーション、ボタンを非表示 */
+    nav,
+    .header-actions,
+    .filter-bar,
+    .btn-primary,
+    .btn-secondary,
+    .btn-danger,
+    .action-buttons,
+    #show-shortcuts {
+        display: none !important;
+    }
+
+    /* ページ余白 */
+    @page {
+        margin: 1cm;
+    }
+
+    /* 改ページ */
+    .section,
+    .notification-card,
+    .stats-card {
+        page-break-inside: avoid;
+    }
+
+    /* 背景色を削除 */
+    .notification-card,
+    .stats-card {
+        border: 1px solid #ddd;
+        background: white !important;
+    }
+
+    /* テーブルの境界線 */
+    table {
+        border-collapse: collapse;
+    }
+
+    table th,
+    table td {
+        border: 1px solid #ddd;
+    }
+}
+
+/* 高解像度ディスプレイ */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    /* アイコンやグラフィックを高解像度に */
+    .truck-icon,
+    .driver-icon,
+    .customer-icon {
+        image-rendering: -webkit-optimize-contrast;
+    }
+}
+
+/* ダークモード対応 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-color: #1a1a1a;
+        --text-color: #e0e0e0;
+        --card-bg: #2a2a2a;
+        --border-color: #444;
+    }
+
+    body {
+        background-color: var(--bg-color);
+        color: var(--text-color);
+    }
+
+    .container {
+        background-color: var(--bg-color);
+    }
+
+    header {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    }
+
+    .notification-card,
+    .stats-card {
+        background-color: var(--card-bg);
+        border-color: var(--border-color);
+    }
+
+    table {
+        background-color: var(--card-bg);
+    }
+
+    table tr:nth-child(even) {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    input,
+    select,
+    textarea {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border-color: var(--border-color);
+    }
+
+    .modal-content {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+    }
+}
+
+/* アクセシビリティ向上 */
+@media (prefers-reduced-motion: reduce) {
+    /* アニメーションを削減 */
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* 大画面ディスプレイ */
+@media screen and (min-width: 1920px) {
+    .container {
+        max-width: 1800px;
+    }
+
+    .dashboard-container {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .stats-container {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* iPad Pro対応 */
+@media screen and (min-width: 1024px) and (max-width: 1366px) {
+    .dashboard-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .stats-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* 折りたたみデバイス対応 */
+@media screen and (min-width: 280px) and (max-width: 653px) {
+    .container {
+        padding: 5px;
+    }
+
+    .section {
+        padding: 10px;
+    }
+
+    .notification-card {
+        padding: 10px;
+    }
+
+    table {
+        font-size: 10px;
+    }
+
+    .btn-primary,
+    .btn-secondary {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+}
+
+/* モバイル用ハンバーガーメニュー */
+.mobile-menu-toggle {
+    display: none;
+}
+
+@media screen and (max-width: 768px) {
+    .mobile-menu-toggle {
+        display: block;
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 1001;
+        background: #3498db;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 5px;
+        font-size: 20px;
+        cursor: pointer;
+    }
+
+    nav {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.95);
+        z-index: 1000;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+    }
+
+    nav.mobile-menu-open {
+        display: flex;
+    }
+
+    .nav-btn {
+        width: 80%;
+        max-width: 300px;
+        padding: 15px;
+        font-size: 16px;
+    }
+}
+
+/* PWA用スタイル */
+@media all and (display-mode: standalone) {
+    /* PWAとしてインストールされた時のスタイル */
+    body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .container {
+        min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    }
+}

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>トラック配送管理システム</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="mobile-responsive.css">
 </head>
 <body>
     <!-- ログイン画面 -->
@@ -454,6 +455,65 @@
                             </button>
                             <button onclick="notificationManager.requestPermission()" class="btn-secondary">
                                 🔓 通知権限リクエスト
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- コスト削減提案カード -->
+                    <div class="stats-card">
+                        <h3>💡 コスト削減提案</h3>
+                        <div id="cost-reduction-suggestions"></div>
+                        <button onclick="loadCostReductionSuggestions()" class="btn-primary" style="margin-top: 15px;">
+                            更新
+                        </button>
+                    </div>
+
+                    <!-- KPI（重要業績評価指標）カード -->
+                    <div class="stats-card">
+                        <h3>📈 KPI（重要業績評価指標）</h3>
+                        <div id="kpi-metrics"></div>
+                    </div>
+
+                    <!-- 時間帯別分析カード -->
+                    <div class="stats-card">
+                        <h3>⏰ 時間帯別配送分析</h3>
+                        <div id="time-of-day-analysis"></div>
+                    </div>
+
+                    <!-- 曜日別分析カード -->
+                    <div class="stats-card">
+                        <h3>📅 曜日別配送分析</h3>
+                        <div id="day-of-week-analysis"></div>
+                    </div>
+
+                    <!-- データ整合性チェックカード -->
+                    <div class="stats-card">
+                        <h3>🔍 データ整合性チェック</h3>
+                        <p style="color: #666; margin-bottom: 15px;">データの整合性と品質を確認します。</p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button onclick="runDataIntegrityCheck()" class="btn-primary">
+                                🔍 整合性チェック実行
+                            </button>
+                            <button onclick="showDataCleanupSuggestions()" class="btn-secondary">
+                                🧹 クリーンアップ提案
+                            </button>
+                        </div>
+                        <div id="integrity-check-results" style="margin-top: 15px;"></div>
+                    </div>
+
+                    <!-- 外部連携設定カード -->
+                    <div class="stats-card">
+                        <h3>🔗 外部連携設定</h3>
+                        <p style="color: #666; margin-bottom: 15px;">Webhook、API、メール通知などの外部連携を設定できます。</p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button onclick="externalIntegration.showSettingsDialog()" class="btn-primary">
+                                ⚙️ 連携設定
+                            </button>
+                            <button onclick="externalIntegration.exportData('json', 'all')" class="btn-secondary">
+                                📤 JSONエクスポート
+                            </button>
+                            <button onclick="externalIntegration.exportData('csv', 'deliveries')" class="btn-secondary">
+                                📊 CSVエクスポート
                             </button>
                         </div>
                     </div>
@@ -1315,6 +1375,11 @@
     <script src="auth.js"></script>
     <script src="database.js"></script>
     <script src="backup.js"></script>
+    <script src="data-validation.js"></script>
+    <script src="cost-management.js"></script>
+    <script src="driver-management-advanced.js"></script>
+    <script src="advanced-analytics.js"></script>
+    <script src="external-integration.js"></script>
     <script src="delivery-advanced.js"></script>
     <script src="route-map.js"></script>
     <script src="gps-tracking.js"></script>
@@ -1322,6 +1387,7 @@
     <script src="notification-manager.js"></script>
     <script src="app.js"></script>
     <script src="app-gps-maps.js"></script>
+    <script src="app-enhanced-features.js"></script>
     <script src="security-ui.js"></script>
 </body>
 </html>
