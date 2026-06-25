@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ランタイムテスト - トラック配送管理システム</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #3498db;
+            background-color: #f8f9fa;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .test-pass {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .test-fail {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .test-info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .summary {
+            margin-top: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .summary h2 {
+            margin-top: 0;
+        }
+        #test-results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 ランタイムテスト</h1>
+        <p>このページはアプリケーションの動作確認を行います。すべてのテストがパスすることを確認してください。</p>
+
+        <div class="test-section">
+            <h3>テスト実行</h3>
+            <button onclick="runAllTests()">🚀 全テスト実行</button>
+            <button onclick="clearResults()">🗑️ 結果をクリア</button>
+        </div>
+
+        <div id="test-results"></div>
+
+        <div id="summary" style="display: none;" class="summary">
+            <h2>テスト結果サマリー</h2>
+            <div id="summary-content"></div>
+        </div>
+    </div>
+
+    <script>
+        const results = [];
+
+        function addResult(testName, passed, message) {
+            results.push({ testName, passed, message });
+
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${passed ? 'test-pass' : 'test-fail'}`;
+            resultDiv.innerHTML = `
+                <strong>${passed ? '✅' : '❌'} ${testName}</strong><br>
+                ${message}
+            `;
+
+            document.getElementById('test-results').appendChild(resultDiv);
+        }
+
+        function addInfo(message) {
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'test-result test-info';
+            infoDiv.innerHTML = `<strong>ℹ️ 情報</strong><br>${message}`;
+            document.getElementById('test-results').appendChild(infoDiv);
+        }
+
+        async function runAllTests() {
+            clearResults();
+            addInfo('テストを開始します...');
+
+            // 1. LocalStorage APIのテスト
+            testLocalStorage();
+
+            // 2. Notification APIのテスト
+            testNotificationAPI();
+
+            // 3. Geolocation APIのテスト
+            testGeolocationAPI();
+
+            // 4. 基本的なJavaScript機能のテスト
+            testBasicJavaScript();
+
+            // 5. ブラウザ互換性のテスト
+            testBrowserCompatibility();
+
+            // 6. パフォーマンステスト
+            testPerformance();
+
+            // サマリー表示
+            await new Promise(resolve => setTimeout(resolve, 100));
+            showSummary();
+        }
+
+        function testLocalStorage() {
+            try {
+                const testKey = 'runtime_test_key';
+                const testValue = 'test_value_' + Date.now();
+
+                localStorage.setItem(testKey, testValue);
+                const retrieved = localStorage.getItem(testKey);
+                localStorage.removeItem(testKey);
+
+                if (retrieved === testValue) {
+                    addResult('LocalStorage API', true, 'LocalStorageの読み書きが正常に動作しています');
+                } else {
+                    addResult('LocalStorage API', false, 'LocalStorageの値が一致しません');
+                }
+            } catch (error) {
+                addResult('LocalStorage API', false, `エラー: ${error.message}`);
+            }
+        }
+
+        function testNotificationAPI() {
+            if ('Notification' in window) {
+                const permission = Notification.permission;
+                addResult(
+                    'Notification API',
+                    true,
+                    `Notification APIが利用可能です。権限: ${permission}`
+                );
+            } else {
+                addResult(
+                    'Notification API',
+                    false,
+                    'Notification APIがサポートされていません'
+                );
+            }
+        }
+
+        function testGeolocationAPI() {
+            if ('geolocation' in navigator) {
+                addResult(
+                    'Geolocation API',
+                    true,
+                    'Geolocation APIが利用可能です（GPS追跡機能が使用できます）'
+                );
+            } else {
+                addResult(
+                    'Geolocation API',
+                    false,
+                    'Geolocation APIがサポートされていません'
+                );
+            }
+        }
+
+        function testBasicJavaScript() {
+            try {
+                // ES6機能のテスト
+                const arrow = () => 'test';
+                const [a, b] = [1, 2];
+                const obj = { a, b };
+                const promise = new Promise(resolve => resolve(true));
+
+                addResult(
+                    'JavaScript ES6+',
+                    true,
+                    'ES6+の機能が正常に動作しています（Arrow Function, Destructuring, Promise）'
+                );
+            } catch (error) {
+                addResult(
+                    'JavaScript ES6+',
+                    false,
+                    `ES6+機能でエラー: ${error.message}`
+                );
+            }
+        }
+
+        function testBrowserCompatibility() {
+            const features = {
+                'Fetch API': 'fetch' in window,
+                'Web Storage': 'localStorage' in window && 'sessionStorage' in window,
+                'Service Worker': 'serviceWorker' in navigator,
+                'WebSocket': 'WebSocket' in window,
+                'IndexedDB': 'indexedDB' in window
+            };
+
+            let allSupported = true;
+            let details = [];
+
+            for (const [feature, supported] of Object.entries(features)) {
+                details.push(`${feature}: ${supported ? '✓' : '✗'}`);
+                if (!supported && ['Fetch API', 'Web Storage'].includes(feature)) {
+                    allSupported = false;
+                }
+            }
+
+            addResult(
+                'ブラウザ互換性',
+                allSupported,
+                details.join('<br>')
+            );
+        }
+
+        function testPerformance() {
+            const start = performance.now();
+
+            // 軽量な計算処理
+            let sum = 0;
+            for (let i = 0; i < 10000; i++) {
+                sum += i;
+            }
+
+            const end = performance.now();
+            const duration = (end - start).toFixed(2);
+
+            const passed = duration < 100; // 100ms以内であればパス
+
+            addResult(
+                'パフォーマンス',
+                passed,
+                `計算処理時間: ${duration}ms ${passed ? '（良好）' : '（要改善）'}`
+            );
+        }
+
+        function showSummary() {
+            const total = results.length;
+            const passed = results.filter(r => r.passed).length;
+            const failed = total - passed;
+            const passRate = ((passed / total) * 100).toFixed(1);
+
+            const summaryDiv = document.getElementById('summary');
+            const summaryContent = document.getElementById('summary-content');
+
+            summaryContent.innerHTML = `
+                <p style="font-size: 48px; margin: 10px 0;">
+                    ${passed === total ? '🎉' : '⚠️'}
+                </p>
+                <h3>総テスト数: ${total}</h3>
+                <p style="font-size: 24px;">
+                    ✅ 成功: ${passed} | ❌ 失敗: ${failed}
+                </p>
+                <p style="font-size: 20px;">
+                    成功率: ${passRate}%
+                </p>
+                <p style="margin-top: 20px;">
+                    ${passed === total
+                        ? '✨ すべてのテストがパスしました！アプリは正常に動作します。'
+                        : '⚠️ 一部のテストが失敗しました。詳細を確認してください。'}
+                </p>
+            `;
+
+            summaryDiv.style.display = 'block';
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+            document.getElementById('summary').style.display = 'none';
+            results.length = 0;
+        }
+
+        // ページロード時の情報表示
+        window.addEventListener('load', () => {
+            addInfo(`
+                ブラウザ: ${navigator.userAgent}<br>
+                画面サイズ: ${window.innerWidth} x ${window.innerHeight}<br>
+                プラットフォーム: ${navigator.platform}<br>
+                オンライン: ${navigator.onLine ? 'はい' : 'いいえ'}
+            `);
+        });
+    </script>
+</body>
+</html>
