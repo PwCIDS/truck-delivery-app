@@ -17,3 +17,7 @@ Thumbs.db
 
 # Vercel
 .vercel
+
+# Build output
+dist/
+node_modules/
