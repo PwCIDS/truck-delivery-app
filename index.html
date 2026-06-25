@@ -86,6 +86,22 @@
                         <span id="current-month"></span>
                         <button id="next-month">&gt;</button>
                     </div>
+
+                    <!-- トラック/ドライバー切り替え -->
+                    <div class="calendar-type-toggle">
+                        <span style="font-weight: bold; margin-right: 10px;">表示切替:</span>
+                        <button id="calendar-type-truck" class="calendar-type-btn active">🚚 トラック表</button>
+                        <button id="calendar-type-driver" class="calendar-type-btn">👤 ドライバー表</button>
+                    </div>
+
+                    <div class="truck-type-filter" id="truck-type-filter-section">
+                        <span style="font-weight: bold; margin-right: 10px;">トラック種類:</span>
+                        <button id="filter-all-trucks" class="truck-filter-btn active">全て表示</button>
+                        <button id="filter-delivery-trucks" class="truck-filter-btn type-配達">配達</button>
+                        <button id="filter-refrigerated-trucks" class="truck-filter-btn type-保冷">保冷</button>
+                        <button id="filter-livefish-trucks" class="truck-filter-btn type-活魚">活魚</button>
+                    </div>
+
                     <div id="calendar-matrix" class="calendar-matrix"></div>
                 </div>
 
@@ -457,10 +473,18 @@
                 <!-- 行先（複数） -->
                 <div class="form-group">
                     <label>行先 *</label>
-                    <div id="destinations-list"></div>
-                    <div class="destination-input-group">
-                        <input type="text" id="destination-input" placeholder="行先を入力...">
-                        <button type="button" id="add-destination" class="btn-add">+ 追加</button>
+                    <div id="destinations-table-container">
+                        <table id="destinations-table" style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th style="border: 1px solid #ddd; padding: 10px; background: #4CAF50; color: white; font-weight: bold;">日付</th>
+                                    <th style="border: 1px solid #ddd; padding: 10px; background: #4CAF50; color: white; font-weight: bold;">行先</th>
+                                    <th style="border: 1px solid #ddd; padding: 10px; background: #4CAF50; color: white; font-weight: bold; width: 100px;">積載</th>
+                                    <th style="border: 1px solid #ddd; padding: 10px; background: #4CAF50; color: white; font-weight: bold; width: 100px;">卸下</th>
+                                </tr>
+                            </thead>
+                            <tbody id="destinations-list"></tbody>
+                        </table>
                     </div>
                 </div>
 

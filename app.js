@@ -7,6 +7,8 @@ let currentCustomerSearch = null;
 let currentSortField = null;
 let currentSortOrder = 'desc';
 let aiSuggestedTruck = null;
+let currentTruckTypeFilter = 'all'; // トラック種類フィルタ
+let currentCalendarType = 'truck'; // カレンダー表示タイプ: 'truck' or 'driver'
 
 document.addEventListener('DOMContentLoaded', function() {
     initNavigation();
@@ -73,6 +75,16 @@ function initDeliveryManagement() {
     document.getElementById('prev-month').addEventListener('click', () => changeMonth(-1));
     document.getElementById('next-month').addEventListener('click', () => changeMonth(1));
 
+    // カレンダー表示タイプ切り替えボタン
+    document.getElementById('calendar-type-truck').addEventListener('click', () => switchCalendarType('truck'));
+    document.getElementById('calendar-type-driver').addEventListener('click', () => switchCalendarType('driver'));
+
+    // トラック種類フィルタボタン
+    document.getElementById('filter-all-trucks').addEventListener('click', () => filterTruckType('all'));
+    document.getElementById('filter-delivery-trucks').addEventListener('click', () => filterTruckType('配達'));
+    document.getElementById('filter-refrigerated-trucks').addEventListener('click', () => filterTruckType('保冷'));
+    document.getElementById('filter-livefish-trucks').addEventListener('click', () => filterTruckType('活魚'));
+
     document.getElementById('search-delivery').addEventListener('input', filterDeliveries);
     document.getElementById('filter-truck').addEventListener('change', filterDeliveries);
     document.getElementById('filter-customer').addEventListener('change', filterDeliveries);
@@ -81,13 +93,9 @@ function initDeliveryManagement() {
     document.getElementById('filter-end-date').addEventListener('change', filterDeliveries);
     document.getElementById('clear-filters').addEventListener('click', clearDeliveryFilters);
 
-    document.getElementById('add-destination').addEventListener('click', addDestination);
-    document.getElementById('destination-input').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            addDestination();
-        }
-    });
+    // 日付変更時に行先テーブルを自動更新
+    document.getElementById('delivery-start-date').addEventListener('change', updateDestinationsTable);
+    document.getElementById('delivery-end-date').addEventListener('change', updateDestinationsTable);
 
     document.getElementById('print-delivery').addEventListener('click', printDeliveryView);
 
@@ -237,15 +245,52 @@ function clearSelection(fieldName, dataType) {
     searchInput.focus();
 }
 
-function addDestination() {
-    const input = document.getElementById('destination-input');
-    const destination = input.value.trim();
+// 出発日と到着日が変更されたときに行先テーブルを更新
+function updateDestinationsTable() {
+    const startDate = document.getElementById('delivery-start-date').value;
+    const endDate = document.getElementById('delivery-end-date').value;
 
-    if (destination) {
-        destinations.push(destination);
-        input.value = '';
-        renderDestinations();
+    if (!startDate || !endDate) {
+        return;
     }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+    // 既存のデータを保持しながら、行数を調整
+    const currentDestinations = [...destinations];
+    destinations = [];
+
+    for (let i = 0; i < daysDiff; i++) {
+        const currentDate = new Date(start);
+        currentDate.setDate(start.getDate() + i);
+        const dateStr = currentDate.toISOString().split('T')[0];
+
+        if (currentDestinations[i]) {
+            // 既存データがある場合は保持
+            destinations.push({
+                date: dateStr,
+                destination: currentDestinations[i].destination || '',
+                hasLoad: currentDestinations[i].hasLoad !== undefined ? currentDestinations[i].hasLoad : true,
+                hasUnload: currentDestinations[i].hasUnload !== undefined ? currentDestinations[i].hasUnload : false
+            });
+        } else {
+            // 新しい行を追加
+            destinations.push({
+                date: dateStr,
+                destination: '',
+                hasLoad: i === 0, // 初日は積載あり
+                hasUnload: i === daysDiff - 1 // 最終日は卸下あり
+            });
+        }
+    }
+
+    renderDestinations();
+}
+
+function addDestination() {
+    // この関数は使用しなくなりましたが、互換性のため残す
 }
 
 function removeDestination(index) {
@@ -258,15 +303,69 @@ function renderDestinations() {
     container.innerHTML = '';
 
     destinations.forEach((dest, index) => {
-        const div = document.createElement('div');
-        div.className = 'destination-item';
-        div.innerHTML = `
-            <span class="destination-order">${index + 1}.</span>
-            <span class="destination-text">${dest}</span>
-            <button type="button" class="remove-destination" onclick="removeDestination(${index})">&times;</button>
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="border: 1px solid #ddd; padding: 8px;">
+                <input type="date"
+                       value="${dest.date}"
+                       readonly
+                       style="width: 100%; border: none; background: transparent; padding: 4px;">
+            </td>
+            <td style="border: 1px solid #ddd; padding: 8px;">
+                <input type="text"
+                       value="${dest.destination}"
+                       placeholder="行先を入力..."
+                       style="width: 100%; border: 1px solid #ddd; padding: 4px; border-radius: 4px;"
+                       onchange="updateDestination(${index}, this.value)">
+            </td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                <input type="checkbox"
+                       ${dest.hasLoad ? 'checked' : ''}
+                       onchange="updateDestinationLoad(${index}, this.checked)"
+                       style="width: 20px; height: 20px; cursor: pointer;">
+            </td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                <input type="checkbox"
+                       ${dest.hasUnload ? 'checked' : ''}
+                       onchange="updateDestinationUnload(${index}, this.checked)"
+                       style="width: 20px; height: 20px; cursor: pointer;">
+            </td>
         `;
-        container.appendChild(div);
+        container.appendChild(tr);
     });
+}
+
+// 行先の値を更新
+function updateDestination(index, value) {
+    if (destinations[index]) {
+        destinations[index].destination = value;
+    }
+}
+
+// 積載チェックボックスを更新
+function updateDestinationLoad(index, checked) {
+    if (destinations[index]) {
+        destinations[index].hasLoad = checked;
+    }
+}
+
+// 卸下チェックボックスを更新
+function updateDestinationUnload(index, checked) {
+    if (destinations[index]) {
+        destinations[index].hasUnload = checked;
+    }
+}
+
+// destinations配列を文字列に変換（表示用）
+function formatDestinations(destinations) {
+    if (!destinations || destinations.length === 0) return '';
+
+    return destinations.map(dest => {
+        if (typeof dest === 'object') {
+            return dest.destination || '';
+        }
+        return dest;
+    }).filter(d => d).join(' → ');
 }
 
 function switchView(view) {
@@ -294,61 +393,121 @@ function loadDeliveryView() {
     }
 }
 
+function switchCalendarType(type) {
+    currentCalendarType = type;
+
+    // ボタンのアクティブ状態を更新
+    document.querySelectorAll('.calendar-type-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    if (type === 'truck') {
+        document.getElementById('calendar-type-truck').classList.add('active');
+        document.getElementById('truck-type-filter-section').style.display = 'flex';
+    } else {
+        document.getElementById('calendar-type-driver').classList.add('active');
+        document.getElementById('truck-type-filter-section').style.display = 'none';
+    }
+
+    // カレンダーを再読み込み
+    loadCalendarView();
+}
+
 function changeMonth(delta) {
     currentMonth.setMonth(currentMonth.getMonth() + delta);
     loadCalendarView();
 }
 
+function filterTruckType(type) {
+    currentTruckTypeFilter = type;
+
+    // ボタンのアクティブ状態を更新
+    document.querySelectorAll('.truck-filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    if (type === 'all') {
+        document.getElementById('filter-all-trucks').classList.add('active');
+    } else if (type === '配達') {
+        document.getElementById('filter-delivery-trucks').classList.add('active');
+    } else if (type === '保冷') {
+        document.getElementById('filter-refrigerated-trucks').classList.add('active');
+    } else if (type === '活魚') {
+        document.getElementById('filter-livefish-trucks').classList.add('active');
+    }
+
+    // カレンダーを再読み込み
+    loadCalendarView();
+}
+
 function loadCalendarView() {
+    if (currentCalendarType === 'truck') {
+        renderTruckCalendar();
+    } else {
+        renderDriverCalendar();
+    }
+}
+
+function renderTruckCalendar() {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
 
-    document.getElementById('current-month').textContent = `${year}年 ${month + 1}月`;
+    const allTrucks = db.getAllTrucks();
+    let trucks = [...allTrucks];
+    const deliveries = db.getAllDeliveries();
+
+    // トラック種類でフィルタリング
+    if (currentTruckTypeFilter !== 'all') {
+        trucks = trucks.filter(t => t.type === currentTruckTypeFilter);
+    }
+
+    // 月とトラック数を表示
+    const filterText = currentTruckTypeFilter === 'all'
+        ? `全トラック ${trucks.length}台`
+        : `${currentTruckTypeFilter}トラック ${trucks.length}台`;
+    document.getElementById('current-month').textContent = `${year}年 ${month + 1}月 - ${filterText}`;
 
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
 
-    const trucks = db.getAllTrucks();
-    const deliveries = db.getAllDeliveries();
-
     // トラックを1列に10台ずつ表示
-    const trucksPerRow = 10;
-    const truckGroups = [];
-    for (let i = 0; i < trucks.length; i += trucksPerRow) {
-        truckGroups.push(trucks.slice(i, i + trucksPerRow));
-    }
-
     let html = '';
 
-    // 各トラックグループごとにテーブルを作成
-    truckGroups.forEach((truckGroup, groupIndex) => {
-        html += '<table class="calendar-table"><thead><tr><th class="date-header">日付</th>';
+    // トラックが0台の場合のメッセージ
+    if (trucks.length === 0) {
+        html = '<div style="text-align: center; padding: 40px; color: #999; font-size: 16px;">該当するトラックがありません</div>';
+        document.getElementById('calendar-matrix').innerHTML = html;
+        return;
+    }
 
-        // トラックヘッダー（横）
-        truckGroup.forEach(truck => {
-            html += `<th class="truck-header-new">
-                <div class="truck-info-compact">
-                    <div class="truck-number">${truck.number}</div>
-                    <div class="truck-plate">${truck.plate}</div>
-                    <span class="truck-type-badge type-${truck.type || '配達'}">${truck.type || '配達'}</span>
-                </div>
-            </th>`;
-        });
+    // 全トラックを1つのテーブルで表示
+    html += '<div class="calendar-wrapper"><table class="calendar-table"><thead><tr><th class="date-header">日付</th>';
 
-        html += '</tr></thead><tbody>';
+    // トラックヘッダー（横）
+    trucks.forEach(truck => {
+        html += `<th class="truck-header-new">
+            <div class="truck-info-compact">
+                <div class="truck-number">${truck.number}</div>
+                <div class="truck-plate">${truck.plate}</div>
+                <span class="truck-type-badge type-${truck.type || '配達'}">${truck.type || '配達'}</span>
+            </div>
+        </th>`;
+    });
 
-        // 日付行（縦）
-        for (let day = 1; day <= daysInMonth; day++) {
-            const date = new Date(year, month, day);
-            const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const dayClass = dayOfWeek === '日' ? 'sunday' : dayOfWeek === '土' ? 'saturday' : '';
+    html += '</tr></thead><tbody>';
 
-            html += `<tr><td class="date-cell ${dayClass}">${day}日<br>(${dayOfWeek})</td>`;
+    // 日付行（縦）
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayClass = dayOfWeek === '日' ? 'sunday' : dayOfWeek === '土' ? 'saturday' : '';
 
-            // 各トラックのセル
-            truckGroup.forEach(truck => {
+        html += `<tr><td class="date-cell ${dayClass}">${day}日<br>(${dayOfWeek})</td>`;
+
+        // 各トラックのセル
+        trucks.forEach(truck => {
                 const deliveriesOnDate = deliveries.filter(d => {
                     if (d.truckId !== truck.id) return false;
 
@@ -362,10 +521,50 @@ function loadCalendarView() {
                 if (deliveriesOnDate.length > 0) {
                     const delivery = deliveriesOnDate[0];
                     const customer = db.getCustomerById(delivery.customerId);
-                    const destText = delivery.destinations ? delivery.destinations[0] : '';
-                    html += `<td class="calendar-cell occupied" onclick="editDelivery(${delivery.id})" title="${customer ? customer.name : ''} - ${destText}">
+                    const driver = db.getDriverById(delivery.driverId);
+                    const destText = formatDestinations(delivery.destinations);
+                    const destShort = destText.substring(0, 15) + (destText.length > 15 ? '...' : '');
+
+                    // この日の積載状態をチェック
+                    let hasLoad = false;
+                    let hasMatchingDate = false;
+
+                    if (delivery.destinations && Array.isArray(delivery.destinations)) {
+                        // 旧形式（文字列配列）の場合は、積載ありとして扱う
+                        if (delivery.destinations.length > 0 && typeof delivery.destinations[0] === 'string') {
+                            hasLoad = true;
+                        } else {
+                            // 新形式（オブジェクト配列）の場合
+                            delivery.destinations.forEach(dest => {
+                                if (typeof dest === 'object' && dest.date) {
+                                    // 日付文字列で直接比較（YYYY-MM-DD形式）
+                                    if (dest.date === dateStr) {
+                                        hasMatchingDate = true;
+                                        if (dest.hasLoad) {
+                                            hasLoad = true;
+                                        }
+                                    }
+                                }
+                            });
+
+                            // 該当日付が見つからない場合は、積載ありとして扱う（デフォルト）
+                            if (!hasMatchingDate) {
+                                hasLoad = true;
+                            }
+                        }
+                    } else {
+                        // destinationsが無い場合は、積載ありとして扱う
+                        hasLoad = true;
+                    }
+
+                    // 積載がある日は青、ない日は緑
+                    const cellClass = hasLoad ? 'calendar-cell occupied' : 'calendar-cell occupied-no-load';
+
+                    html += `<td class="${cellClass}" onclick="editDelivery(${delivery.id})" title="顧客: ${customer ? customer.name : ''}\nドライバー: ${driver ? driver.name : '未選択'}\n行先: ${destText}\n積載: ${hasLoad ? 'あり' : 'なし'}">
                         <div class="delivery-info-compact">
-                            <div class="delivery-customer-short">${customer ? customer.name.substring(0, 8) : ''}</div>
+                            <div class="delivery-customer-short">${customer ? customer.name.substring(0, 10) : ''}</div>
+                            <div class="delivery-driver-short" style="font-size: 11px; color: #666;">👤 ${driver ? driver.name.substring(0, 8) : '未選択'}</div>
+                            <div class="delivery-dest-short" style="font-size: 11px; color: #007bff;">📍 ${destShort}</div>
                         </div>
                     </td>`;
                 } else {
@@ -376,13 +575,7 @@ function loadCalendarView() {
             html += '</tr>';
         }
 
-        html += '</tbody></table>';
-
-        // グループ間の区切り
-        if (groupIndex < truckGroups.length - 1) {
-            html += '<div class="calendar-separator"></div>';
-        }
-    });
+        html += '</tbody></table></div>';
 
     // トラック未選択の配送を表示
     const unassignedDeliveries = deliveries.filter(d => !d.truckId);
@@ -406,11 +599,170 @@ function loadCalendarView() {
             html += `<div class="unassigned-date">${dateStr}</div>`;
             deliveriesOnDate.forEach(delivery => {
                 const customer = db.getCustomerById(delivery.customerId);
-                const destText = delivery.destinations ? delivery.destinations[0] : '';
+                const driver = db.getDriverById(delivery.driverId);
+                const destText = formatDestinations(delivery.destinations);
                 html += `<div class="unassigned-item" onclick="editDelivery(${delivery.id})">
                     <div class="unassigned-time">${delivery.startTime} - ${delivery.endTime}</div>
-                    <div class="unassigned-customer">${customer ? customer.name : ''}</div>
-                    <div class="unassigned-dest">${destText}</div>
+                    <div class="unassigned-customer">👤 ${customer ? customer.name : ''}</div>
+                    <div class="unassigned-driver" style="font-size: 12px; color: #666;">🚗 ${driver ? driver.name : '未選択'}</div>
+                    <div class="unassigned-dest">📍 ${destText}</div>
+                </div>`;
+            });
+            html += `</div>`;
+        });
+
+        html += '</div></div>';
+    }
+
+    document.getElementById('calendar-matrix').innerHTML = html;
+}
+
+function renderDriverCalendar() {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+
+    const drivers = db.getAllDrivers();
+    const deliveries = db.getAllDeliveries();
+
+    // 月とドライバー数を表示
+    document.getElementById('current-month').textContent = `${year}年${month + 1}月 (${drivers.length}名のドライバー)`;
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    let html = '';
+
+    // ドライバーが0名の場合のメッセージ
+    if (drivers.length === 0) {
+        html = '<div style="text-align: center; padding: 40px; color: #999; font-size: 16px;">ドライバーが登録されていません</div>';
+        document.getElementById('calendar-matrix').innerHTML = html;
+        return;
+    }
+
+    // 全ドライバーを1つのテーブルで表示
+    html += '<div class="calendar-wrapper"><table class="calendar-table"><thead><tr><th class="date-header">日付</th>';
+
+    // ドライバーヘッダー（横）
+    drivers.forEach(driver => {
+        html += `<th class="driver-header-new">
+            <div class="driver-info-compact">
+                <div class="driver-code">${driver.code}</div>
+                <div class="driver-name">${driver.name}</div>
+                <div class="driver-license">${driver.license}免許</div>
+            </div>
+        </th>`;
+    });
+
+    html += '</tr></thead><tbody>';
+
+    // 日付行（縦）
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const dayOfWeek = ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayClass = dayOfWeek === '日' ? 'sunday' : dayOfWeek === '土' ? 'saturday' : '';
+
+        html += `<tr><td class="date-cell ${dayClass}">${day}日<br>(${dayOfWeek})</td>`;
+
+        // 各ドライバーのセル
+        drivers.forEach(driver => {
+            const deliveriesOnDate = deliveries.filter(d => {
+                if (d.driverId !== driver.id) return false;
+
+                const startDate = new Date(d.startDate);
+                const endDate = new Date(d.endDate);
+                const currentDate = new Date(dateStr);
+
+                return currentDate >= startDate && currentDate <= endDate;
+            });
+
+            if (deliveriesOnDate.length > 0) {
+                const delivery = deliveriesOnDate[0];
+                const customer = db.getCustomerById(delivery.customerId);
+                const truck = db.getTruckById(delivery.truckId);
+                const destText = formatDestinations(delivery.destinations);
+                const destShort = destText.substring(0, 15) + (destText.length > 15 ? '...' : '');
+
+                // この日の積載状態をチェック
+                let hasLoad = false;
+                let hasMatchingDate = false;
+
+                if (delivery.destinations && Array.isArray(delivery.destinations)) {
+                    // 旧形式（文字列配列）の場合は、積載ありとして扱う
+                    if (delivery.destinations.length > 0 && typeof delivery.destinations[0] === 'string') {
+                        hasLoad = true;
+                    } else {
+                        // 新形式（オブジェクト配列）の場合
+                        delivery.destinations.forEach(dest => {
+                            if (typeof dest === 'object' && dest.date) {
+                                // 日付文字列で直接比較（YYYY-MM-DD形式）
+                                if (dest.date === dateStr) {
+                                    hasMatchingDate = true;
+                                    if (dest.hasLoad) {
+                                        hasLoad = true;
+                                    }
+                                }
+                            }
+                        });
+
+                        // 該当日付が見つからない場合は、積載ありとして扱う（デフォルト）
+                        if (!hasMatchingDate) {
+                            hasLoad = true;
+                        }
+                    }
+                } else {
+                    // destinationsが無い場合は、積載ありとして扱う
+                    hasLoad = true;
+                }
+
+                // 積載がある日は青、ない日は緑
+                const cellClass = hasLoad ? 'calendar-cell occupied' : 'calendar-cell occupied-no-load';
+
+                html += `<td class="${cellClass}" onclick="editDelivery(${delivery.id})" title="顧客: ${customer ? customer.name : ''}\nトラック: ${truck ? truck.number : '未選択'}\n行先: ${destText}\n積載: ${hasLoad ? 'あり' : 'なし'}">
+                    <div class="delivery-info-compact">
+                        <div class="delivery-customer-short">${customer ? customer.name.substring(0, 10) : ''}</div>
+                        <div class="delivery-truck-short" style="font-size: 11px; color: #666;">🚚 ${truck ? truck.number.substring(0, 8) : '未選択'}</div>
+                        <div class="delivery-dest-short" style="font-size: 11px; color: #007bff;">📍 ${destShort}</div>
+                    </div>
+                </td>`;
+            } else {
+                html += `<td class="calendar-cell"></td>`;
+            }
+        });
+
+        html += '</tr>';
+    }
+
+    html += '</tbody></table></div>';
+
+    // ドライバー未選択の配送を表示
+    const unassignedDeliveries = deliveries.filter(d => !d.driverId);
+    if (unassignedDeliveries.length > 0) {
+        html += '<div class="unassigned-section">';
+        html += '<h3 class="unassigned-title">⚠️ ドライバー未選択の配送</h3>';
+        html += '<div class="unassigned-list">';
+
+        const unassignedByDate = {};
+        unassignedDeliveries.forEach(delivery => {
+            const dateStr = delivery.startDate;
+            if (!unassignedByDate[dateStr]) {
+                unassignedByDate[dateStr] = [];
+            }
+            unassignedByDate[dateStr].push(delivery);
+        });
+
+        Object.keys(unassignedByDate).sort().forEach(dateStr => {
+            const deliveriesOnDate = unassignedByDate[dateStr];
+            html += `<div class="unassigned-date-group">`;
+            html += `<div class="unassigned-date">${dateStr}</div>`;
+            deliveriesOnDate.forEach(delivery => {
+                const customer = db.getCustomerById(delivery.customerId);
+                const truck = db.getTruckById(delivery.truckId);
+                const destText = formatDestinations(delivery.destinations);
+                html += `<div class="unassigned-item" onclick="editDelivery(${delivery.id})">
+                    <div class="unassigned-time">${delivery.startTime} - ${delivery.endTime}</div>
+                    <div class="unassigned-customer">👤 ${customer ? customer.name : ''}</div>
+                    <div class="unassigned-truck" style="font-size: 12px; color: #666;">🚗 ${truck ? truck.number : '未選択'}</div>
+                    <div class="unassigned-dest">📍 ${destText}</div>
                 </div>`;
             });
             html += `</div>`;
@@ -462,7 +814,7 @@ function loadListView() {
             'completed': '完了'
         }[delivery.detailedStatus || delivery.status];
 
-        const destText = delivery.destinations ? delivery.destinations.join(' → ') : '';
+        const destText = formatDestinations(delivery.destinations);
         const startDateTime = `${delivery.startDate} ${delivery.startTime}`;
         const endDateTime = `${delivery.endDate} ${delivery.endTime}`;
 
@@ -571,7 +923,6 @@ function openDeliveryModal(prefilledData = {}) {
     form.reset();
 
     destinations = [];
-    renderDestinations();
 
     clearSelection('delivery-truck', 'trucks');
     clearSelection('delivery-customer', 'customers');
@@ -596,6 +947,9 @@ function openDeliveryModal(prefilledData = {}) {
     document.getElementById('delivery-modal-title').textContent = '新規配送登録';
     document.getElementById('delivery-id').value = '';
     document.getElementById('status-field').style.display = 'none';
+
+    // 初期の行先テーブルを生成
+    updateDestinationsTable();
 
     modal.classList.add('active');
 }
@@ -652,7 +1006,24 @@ function editDelivery(id) {
     document.getElementById('status-field').style.display = 'block';
     document.getElementById('delivery-status').value = delivery.status;
 
-    destinations = delivery.destinations ? [...delivery.destinations] : [];
+    // 既存のdestinationsデータを新しい形式に変換
+    if (delivery.destinations && Array.isArray(delivery.destinations)) {
+        // 古い形式（文字列配列）の場合
+        if (typeof delivery.destinations[0] === 'string') {
+            destinations = delivery.destinations.map((dest, index) => ({
+                date: delivery.startDate, // 仮の日付
+                destination: dest,
+                hasLoad: index === 0,
+                hasUnload: index === delivery.destinations.length - 1
+            }));
+        } else {
+            // 新しい形式（オブジェクト配列）の場合
+            destinations = [...delivery.destinations];
+        }
+    } else {
+        destinations = [];
+    }
+
     renderDestinations();
 
     modal.classList.add('active');
@@ -688,6 +1059,13 @@ function handleDeliverySubmit(e) {
 
     if (destinations.length === 0) {
         alert('行先を少なくとも1つ追加してください。');
+        return;
+    }
+
+    // 行先が入力されているかチェック
+    const emptyDestinations = destinations.filter(d => !d.destination || d.destination.trim() === '');
+    if (emptyDestinations.length > 0) {
+        alert('全ての行先を入力してください。');
         return;
     }
 
@@ -1526,7 +1904,7 @@ function exportToCSV(type) {
             d.endTime,
             d.truckId,
             d.customerId,
-            d.destinations ? d.destinations.join('|') : '',
+            d.destinations ? d.destinations.map(dest => typeof dest === 'object' ? dest.destination : dest).join('|') : '',
             d.cargo,
             d.status
         ]);
@@ -2085,7 +2463,7 @@ function sortDeliveries(field) {
             'completed': '完了'
         }[delivery.detailedStatus || delivery.status];
 
-        const destText = delivery.destinations ? delivery.destinations.join(' → ') : '';
+        const destText = formatDestinations(delivery.destinations);
         const startDateTime = `${delivery.startDate} ${delivery.startTime}`;
         const endDateTime = `${delivery.endDate} ${delivery.endTime}`;
 
@@ -2285,9 +2663,29 @@ function printDeliveryInstruction(deliveryId) {
         delivery.destinations.forEach((dest, index) => {
             const routeDiv = document.createElement('div');
             routeDiv.className = 'instruction-route-item';
+
+            // 新形式（オブジェクト）と旧形式（文字列）の両方に対応
+            let destText = '';
+            let loadInfo = '';
+
+            if (typeof dest === 'object') {
+                destText = dest.destination || '';
+                const loadMarks = [];
+                if (dest.hasLoad) loadMarks.push('積載');
+                if (dest.hasUnload) loadMarks.push('卸下');
+                if (loadMarks.length > 0) {
+                    loadInfo = ` [${loadMarks.join('・')}]`;
+                }
+                if (dest.date) {
+                    destText = `${dest.date}: ${destText}`;
+                }
+            } else {
+                destText = dest;
+            }
+
             routeDiv.innerHTML = `
                 <div class="route-number">${index + 1}</div>
-                <div style="flex: 1;">${dest}</div>
+                <div style="flex: 1;">${destText}${loadInfo}</div>
                 ${index < delivery.destinations.length - 1 ? '<div class="route-arrow">↓</div>' : ''}
             `;
             routeContainer.appendChild(routeDiv);
@@ -2329,12 +2727,15 @@ function openAISuggestionModal() {
         return;
     }
 
+    // 配送区分を取得
+    const category = document.querySelector('input[name="delivery-category"]:checked')?.value || '配達';
+
     const modal = document.getElementById('ai-suggestion-modal');
     const contentDiv = document.getElementById('ai-suggestion-content');
     const listDiv = document.getElementById('ai-suggestion-list');
     const confirmBtn = document.getElementById('confirm-ai-suggestion');
 
-    contentDiv.innerHTML = '<p>指定された日時で利用可能なトラックを探しています...</p>';
+    contentDiv.innerHTML = `<p>配送区分「${category}」で利用可能なトラックを探しています...</p>`;
     listDiv.innerHTML = '';
     confirmBtn.style.display = 'none';
     aiSuggestedTruck = null;
@@ -2344,7 +2745,7 @@ function openAISuggestionModal() {
     // AIシミュレーション(少し待機)
     setTimeout(() => {
         const deliveryId = document.getElementById('delivery-id').value;
-        const availableTrucks = db.findAvailableTrucks(
+        let availableTrucks = db.findAvailableTrucks(
             startDate,
             startTime,
             endDate,
@@ -2352,10 +2753,13 @@ function openAISuggestionModal() {
             deliveryId ? parseInt(deliveryId) : null
         );
 
+        // 配送区分に一致するトラックのみをフィルタ
+        availableTrucks = availableTrucks.filter(truck => truck.type === category);
+
         if (availableTrucks.length === 0) {
-            contentDiv.innerHTML = '<p style="color: #e74c3c;">指定された日時で利用可能なトラックが見つかりませんでした。</p>';
+            contentDiv.innerHTML = `<p style="color: #e74c3c;">配送区分「${category}」で利用可能なトラックが見つかりませんでした。</p>`;
         } else {
-            contentDiv.innerHTML = `<p style="color: #27ae60;">✓ ${availableTrucks.length}台の利用可能なトラックが見つかりました。</p>`;
+            contentDiv.innerHTML = `<p style="color: #27ae60;">✓ ${availableTrucks.length}台の「${category}」トラックが見つかりました。</p>`;
 
             availableTrucks.forEach(truck => {
                 const div = document.createElement('div');
@@ -2412,12 +2816,15 @@ function openAIDriverSuggestionModal() {
         return;
     }
 
+    // 配送区分を取得
+    const category = document.querySelector('input[name="delivery-category"]:checked')?.value || '配達';
+
     const modal = document.getElementById('ai-suggestion-modal');
     const contentDiv = document.getElementById('ai-suggestion-content');
     const listDiv = document.getElementById('ai-suggestion-list');
     const confirmBtn = document.getElementById('confirm-ai-suggestion');
 
-    contentDiv.innerHTML = '<p>指定された日時で利用可能なドライバーを探しています...</p>';
+    contentDiv.innerHTML = `<p>配送区分「${category}」で利用可能なドライバーを探しています...</p>`;
     listDiv.innerHTML = '';
     confirmBtn.style.display = 'none';
     aiSuggestedTruck = null; // ドライバー用に再利用
@@ -2427,7 +2834,7 @@ function openAIDriverSuggestionModal() {
     // AIシミュレーション
     setTimeout(() => {
         const deliveryId = document.getElementById('delivery-id').value;
-        const availableDrivers = db.findAvailableDrivers(
+        let availableDrivers = db.findAvailableDrivers(
             startDate,
             startTime,
             endDate,
@@ -2435,10 +2842,28 @@ function openAIDriverSuggestionModal() {
             deliveryId ? parseInt(deliveryId) : null
         );
 
+        // 配送区分に応じた必要スキルを定義
+        const requiredSkillMap = {
+            '活魚': '活魚車運転',
+            '保冷': '保冷車運転',
+            '配達': null // 配達は特別なスキル不要
+        };
+
+        const requiredSkill = requiredSkillMap[category];
+
+        // 必要なスキルを持つドライバーのみをフィルタ
+        if (requiredSkill) {
+            availableDrivers = availableDrivers.filter(driver =>
+                driver.specialSkills && driver.specialSkills.includes(requiredSkill)
+            );
+        }
+
         if (availableDrivers.length === 0) {
-            contentDiv.innerHTML = '<p style="color: #e74c3c;">指定された日時で利用可能なドライバーが見つかりませんでした。</p>';
+            const skillMessage = requiredSkill ? `（${requiredSkill}スキル必須）` : '';
+            contentDiv.innerHTML = `<p style="color: #e74c3c;">配送区分「${category}」${skillMessage}で利用可能なドライバーが見つかりませんでした。</p>`;
         } else {
-            contentDiv.innerHTML = `<p style="color: #27ae60;">✓ ${availableDrivers.length}名の利用可能なドライバーが見つかりました。</p>`;
+            const skillMessage = requiredSkill ? `（${requiredSkill}スキル保持者）` : '';
+            contentDiv.innerHTML = `<p style="color: #27ae60;">✓ ${availableDrivers.length}名の「${category}」配送可能なドライバー${skillMessage}が見つかりました。</p>`;
 
             availableDrivers.forEach(driver => {
                 const div = document.createElement('div');
@@ -2624,7 +3049,7 @@ function renderTruckHistory(deliveries) {
             'inprogress': '運転中'
         }[delivery.detailedStatus || delivery.status];
 
-        const destText = delivery.destinations ? delivery.destinations.join(' → ') : '';
+        const destText = formatDestinations(delivery.destinations);
         const startDateTime = `${delivery.startDate} ${delivery.startTime}`;
         const endDateTime = `${delivery.endDate} ${delivery.endTime}`;
 
@@ -2779,7 +3204,7 @@ function renderDriverHistory(deliveries) {
             'inprogress': '運転中'
         }[delivery.detailedStatus || delivery.status];
 
-        const destText = delivery.destinations ? delivery.destinations.join(' → ') : '';
+        const destText = formatDestinations(delivery.destinations);
         const startDateTime = `${delivery.startDate} ${delivery.startTime}`;
         const endDateTime = `${delivery.endDate} ${delivery.endTime}`;
 

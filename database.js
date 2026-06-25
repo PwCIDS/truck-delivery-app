@@ -1,6 +1,6 @@
 class Database {
     constructor() {
-        this.dataVersion = '7.0'; // データバージョン（ドライバー顔写真を動物に変更）
+        this.dataVersion = '9.0'; // データバージョン（6月・7月・8月のサンプルデータ大幅増加）
         this.checkAndResetData();
         this.deliveries = this.loadData('deliveries') || [];
         this.trucks = this.loadData('trucks') || [];
@@ -605,6 +605,33 @@ class Database {
         return `${year}-${month}-${day}`;
     }
 
+    // 行先配列を新しいオブジェクト形式に変換する関数
+    convertDestinationsToNewFormat(destArray, startDate, endDate) {
+        const result = [];
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+        for (let i = 0; i < daysDiff; i++) {
+            const currentDate = new Date(start);
+            currentDate.setDate(start.getDate() + i);
+            const dateStr = this.formatDate(currentDate);
+
+            // 行先を順番に割り当て（行先が足りない場合は最後の行先を使用）
+            const destIndex = Math.min(i, destArray.length - 1);
+            const destination = destArray[destIndex] || '';
+
+            result.push({
+                date: dateStr,
+                destination: destination,
+                hasLoad: i === 0, // 初日のみ積載
+                hasUnload: i === daysDiff - 1 // 最終日のみ卸下
+            });
+        }
+
+        return result;
+    }
+
     generateSampleDeliveries() {
         const deliveries = [];
         let id = 1;
@@ -673,17 +700,26 @@ class Database {
                 const startDate = new Date(currentYear, 3, day); // 3 = April (0-indexed)
                 const endDate = isMultiDay ? new Date(currentYear, 3, day + 1) : startDate;
 
+                const startDateStr = this.formatDate(startDate);
+                const endDateStr = this.formatDate(endDate);
+                const selectedDestinations = destinations[Math.floor(Math.random() * destinations.length)];
+
+                // トラックの種類を取得して配送区分を決定
+                const truck = this.trucks.find(t => t.id === truckId);
+                const category = truck ? truck.type : '配達';
+
                 deliveries.push({
                     id: id++,
                     truckId,
                     customerId,
                     driverId,
-                    startDate: this.formatDate(startDate),
+                    startDate: startDateStr,
                     startTime: `${String(startHour).padStart(2, '0')}:00`,
-                    endDate: this.formatDate(endDate),
+                    endDate: endDateStr,
                     endTime: `${String((startHour + duration) % 24).padStart(2, '0')}:00`,
-                    destinations: destinations[Math.floor(Math.random() * destinations.length)],
+                    destinations: this.convertDestinationsToNewFormat(selectedDestinations, startDateStr, endDateStr),
                     cargo: cargoTypes[Math.floor(Math.random() * cargoTypes.length)],
+                    category: category,
                     status: 'completed',
                     detailedStatus: 'completed',
                     actualStartTime: `${String(startHour).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
@@ -710,17 +746,26 @@ class Database {
                 const startDate = new Date(currentYear, 4, day); // 4 = May
                 const endDate = isMultiDay ? new Date(currentYear, 4, day + 1) : startDate;
 
+                const startDateStr = this.formatDate(startDate);
+                const endDateStr = this.formatDate(endDate);
+                const selectedDestinations = destinations[Math.floor(Math.random() * destinations.length)];
+
+                // トラックの種類を取得して配送区分を決定
+                const truck = this.trucks.find(t => t.id === truckId);
+                const category = truck ? truck.type : '配達';
+
                 deliveries.push({
                     id: id++,
                     truckId,
                     customerId,
                     driverId,
-                    startDate: this.formatDate(startDate),
+                    startDate: startDateStr,
                     startTime: `${String(startHour).padStart(2, '0')}:00`,
-                    endDate: this.formatDate(endDate),
+                    endDate: endDateStr,
                     endTime: `${String((startHour + duration) % 24).padStart(2, '0')}:00`,
-                    destinations: destinations[Math.floor(Math.random() * destinations.length)],
+                    destinations: this.convertDestinationsToNewFormat(selectedDestinations, startDateStr, endDateStr),
                     cargo: cargoTypes[Math.floor(Math.random() * cargoTypes.length)],
+                    category: category,
                     status: 'completed',
                     detailedStatus: 'completed',
                     actualStartTime: `${String(startHour).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
@@ -737,7 +782,7 @@ class Database {
         const currentDay = today.getMonth() === 5 ? today.getDate() : 30;
 
         for (let day = 1; day <= 30; day++) {
-            const deliveriesPerDay = Math.floor(Math.random() * 10) + 6; // 6-15件/日
+            const deliveriesPerDay = Math.floor(Math.random() * 20) + 20; // 20-40件/日（大幅に増加）
 
             for (let i = 0; i < deliveriesPerDay; i++) {
                 const truckId = Math.floor(Math.random() * totalTrucks) + 1;
@@ -748,6 +793,10 @@ class Database {
 
                 const startDate = new Date(currentYear, 5, day); // 5 = June
                 const endDate = isMultiDay ? new Date(currentYear, 5, day + 1) : startDate;
+
+                const startDateStr = this.formatDate(startDate);
+                const endDateStr = this.formatDate(endDate);
+                const selectedDestinations = destinations[Math.floor(Math.random() * destinations.length)];
 
                 let status, detailedStatus;
                 const driverId = Math.floor(Math.random() * 60) + 1;
@@ -769,23 +818,120 @@ class Database {
                     detailedStatus = 'preparing';
                 }
 
+                // トラックの種類を取得して配送区分を決定
+                const truck = this.trucks.find(t => t.id === truckId);
+                const category = truck ? truck.type : '配達';
+
                 deliveries.push({
                     id: id++,
                     truckId,
                     customerId,
                     driverId,
-                    startDate: this.formatDate(startDate),
+                    startDate: startDateStr,
                     startTime: `${String(startHour).padStart(2, '0')}:00`,
-                    endDate: this.formatDate(endDate),
+                    endDate: endDateStr,
                     endTime: `${String((startHour + duration) % 24).padStart(2, '0')}:00`,
-                    destinations: destinations[Math.floor(Math.random() * destinations.length)],
+                    destinations: this.convertDestinationsToNewFormat(selectedDestinations, startDateStr, endDateStr),
                     cargo: cargoTypes[Math.floor(Math.random() * cargoTypes.length)],
+                    category: category,
                     status,
                     detailedStatus,
                     actualStartTime: status === 'completed' ? `${String(startHour).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}` : null,
                     actualEndTime: status === 'completed' ? `${String((startHour + duration) % 24).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}` : null,
                     distance: Math.floor(Math.random() * 300) + 50,
                     fuelCost: status === 'completed' ? Math.floor(Math.random() * 15000) + 5000 : null,
+                    notes: ''
+                });
+            }
+        }
+
+        // 7月のデータ（31日分）- すべて予定として登録
+        for (let day = 1; day <= 31; day++) {
+            const deliveriesPerDay = Math.floor(Math.random() * 20) + 20; // 20-40件/日
+
+            for (let i = 0; i < deliveriesPerDay; i++) {
+                const truckId = Math.floor(Math.random() * totalTrucks) + 1;
+                const customerId = Math.floor(Math.random() * totalCustomers) + 1;
+                const driverId = Math.floor(Math.random() * 60) + 1;
+                const startHour = 7 + Math.floor(Math.random() * 5);
+                const duration = Math.floor(Math.random() * 6) + 4; // 4-9時間
+                const isMultiDay = Math.random() > 0.8;
+
+                const startDate = new Date(currentYear, 6, day); // 6 = July
+                const endDate = isMultiDay ? new Date(currentYear, 6, day + 1) : startDate;
+
+                const startDateStr = this.formatDate(startDate);
+                const endDateStr = this.formatDate(endDate);
+                const selectedDestinations = destinations[Math.floor(Math.random() * destinations.length)];
+
+                // トラックの種類を取得して配送区分を決定
+                const truck = this.trucks.find(t => t.id === truckId);
+                const category = truck ? truck.type : '配達';
+
+                deliveries.push({
+                    id: id++,
+                    truckId,
+                    customerId,
+                    driverId,
+                    startDate: startDateStr,
+                    startTime: `${String(startHour).padStart(2, '0')}:00`,
+                    endDate: endDateStr,
+                    endTime: `${String((startHour + duration) % 24).padStart(2, '0')}:00`,
+                    destinations: this.convertDestinationsToNewFormat(selectedDestinations, startDateStr, endDateStr),
+                    cargo: cargoTypes[Math.floor(Math.random() * cargoTypes.length)],
+                    category: category,
+                    status: 'scheduled',
+                    detailedStatus: 'preparing',
+                    actualStartTime: null,
+                    actualEndTime: null,
+                    distance: Math.floor(Math.random() * 300) + 50,
+                    fuelCost: null,
+                    notes: ''
+                });
+            }
+        }
+
+        // 8月のデータ（31日分）- 半分の日数のみ（1日〜15日）
+        for (let day = 1; day <= 15; day++) {
+            const deliveriesPerDay = Math.floor(Math.random() * 20) + 20; // 20-40件/日
+
+            for (let i = 0; i < deliveriesPerDay; i++) {
+                const truckId = Math.floor(Math.random() * totalTrucks) + 1;
+                const customerId = Math.floor(Math.random() * totalCustomers) + 1;
+                const driverId = Math.floor(Math.random() * 60) + 1;
+                const startHour = 7 + Math.floor(Math.random() * 5);
+                const duration = Math.floor(Math.random() * 6) + 4; // 4-9時間
+                const isMultiDay = Math.random() > 0.8;
+
+                const startDate = new Date(currentYear, 7, day); // 7 = August
+                const endDate = isMultiDay ? new Date(currentYear, 7, day + 1) : startDate;
+
+                const startDateStr = this.formatDate(startDate);
+                const endDateStr = this.formatDate(endDate);
+                const selectedDestinations = destinations[Math.floor(Math.random() * destinations.length)];
+
+                // トラックの種類を取得して配送区分を決定
+                const truck = this.trucks.find(t => t.id === truckId);
+                const category = truck ? truck.type : '配達';
+
+                deliveries.push({
+                    id: id++,
+                    truckId,
+                    customerId,
+                    driverId,
+                    startDate: startDateStr,
+                    startTime: `${String(startHour).padStart(2, '0')}:00`,
+                    endDate: endDateStr,
+                    endTime: `${String((startHour + duration) % 24).padStart(2, '0')}:00`,
+                    destinations: this.convertDestinationsToNewFormat(selectedDestinations, startDateStr, endDateStr),
+                    cargo: cargoTypes[Math.floor(Math.random() * cargoTypes.length)],
+                    category: category,
+                    status: 'scheduled',
+                    detailedStatus: 'preparing',
+                    actualStartTime: null,
+                    actualEndTime: null,
+                    distance: Math.floor(Math.random() * 300) + 50,
+                    fuelCost: null,
                     notes: ''
                 });
             }

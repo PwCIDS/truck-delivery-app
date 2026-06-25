@@ -213,23 +213,116 @@ main {
     font-weight: bold;
 }
 
+/* カレンダー表示切り替え */
+.calendar-type-toggle {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding: 15px;
+    background-color: #ecf0f1;
+    border-radius: 5px;
+    align-items: center;
+}
+
+.calendar-type-btn {
+    padding: 10px 20px;
+    background-color: white;
+    color: #333;
+    border: 2px solid #bdc3c7;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.calendar-type-btn:hover {
+    background-color: #f8f9fa;
+    border-color: #95a5a6;
+}
+
+.calendar-type-btn.active {
+    background-color: #3498db;
+    color: white;
+    border-color: #3498db;
+}
+
+/* トラック種類フィルター */
+.truck-type-filter {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding: 15px;
+    background-color: #ecf0f1;
+    border-radius: 5px;
+    align-items: center;
+}
+
+.truck-filter-btn {
+    padding: 8px 16px;
+    background-color: white;
+    color: #333;
+    border: 2px solid #bdc3c7;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: all 0.3s;
+}
+
+.truck-filter-btn:hover {
+    background-color: #f8f9fa;
+    border-color: #95a5a6;
+}
+
+.truck-filter-btn.active {
+    background-color: #e74c3c;
+    color: white;
+    border-color: #e74c3c;
+}
+
+.truck-filter-btn.type-配達.active {
+    background-color: #3498db;
+    border-color: #3498db;
+}
+
+.truck-filter-btn.type-保冷.active {
+    background-color: #27ae60;
+    border-color: #27ae60;
+}
+
+.truck-filter-btn.type-活魚.active {
+    background-color: #f39c12;
+    border-color: #f39c12;
+}
+
 .calendar-matrix {
-    overflow-x: auto;
+    overflow: visible;
+}
+
+.calendar-wrapper {
+    overflow: auto;
+    max-height: 70vh;
+    border: 1px solid #ddd;
+    border-radius: 8px;
 }
 
 .calendar-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 30px;
+    width: auto;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 0;
     font-size: 12px;
+    position: relative;
 }
 
-.calendar-table th,
 .calendar-table td {
     border: 1px solid #ddd;
     padding: 8px;
     text-align: center;
-    min-width: 80px;
+    min-width: 120px;
+    width: 120px;
+    height: 75px;
 }
 
 .calendar-table th {
@@ -239,6 +332,7 @@ main {
     position: sticky;
     top: 0;
     z-index: 10;
+    border: 1px solid #2980b9;
 }
 
 .calendar-table .date-header {
@@ -246,21 +340,48 @@ main {
     color: white;
     text-align: center;
     font-weight: bold;
-    min-width: 60px;
+    min-width: 80px;
+    width: 80px;
     position: sticky;
     left: 0;
-    z-index: 11;
+    z-index: 20;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
 
 .calendar-table .truck-header-new {
     background-color: #34495e;
     color: white;
-    padding: 5px;
+    padding: 8px;
     vertical-align: top;
-    min-width: 100px;
+    min-width: 120px;
+    width: 120px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border: 1px solid #2c3e50;
+}
+
+.calendar-table .driver-header-new {
+    background-color: #16a085;
+    color: white;
+    padding: 8px;
+    vertical-align: top;
+    min-width: 120px;
+    width: 120px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border: 1px solid #138d75;
 }
 
 .truck-info-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: center;
+}
+
+.driver-info-compact {
     display: flex;
     flex-direction: column;
     gap: 3px;
@@ -277,14 +398,33 @@ main {
     opacity: 0.9;
 }
 
+.driver-code {
+    font-weight: bold;
+    font-size: 11px;
+}
+
+.driver-name {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.driver-license {
+    font-size: 10px;
+    opacity: 0.9;
+}
+
 .date-cell {
     background-color: #ecf0f1;
     font-weight: bold;
     position: sticky;
     left: 0;
-    z-index: 5;
+    z-index: 9;
     text-align: center;
     font-size: 12px;
+    min-width: 80px;
+    width: 80px;
+    border: 1px solid #ddd;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
 
 .date-cell.sunday {
@@ -298,11 +438,12 @@ main {
 }
 
 .calendar-cell {
-    min-height: 50px;
-    height: 50px;
+    min-height: 75px;
+    height: 75px;
     cursor: pointer;
     transition: background-color 0.3s;
     vertical-align: middle;
+    padding: 5px;
 }
 
 .calendar-cell:hover {
@@ -319,9 +460,25 @@ main {
     background-color: #2980b9;
 }
 
+.calendar-cell.occupied-no-load {
+    background-color: #27ae60;
+    color: white;
+    font-size: 11px;
+}
+
+.calendar-cell.occupied-no-load:hover {
+    background-color: #229954;
+}
+
 .delivery-info-compact {
     font-size: 10px;
-    line-height: 1.3;
+    line-height: 1.4;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.delivery-info-compact > div {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -329,6 +486,17 @@ main {
 
 .delivery-customer-short {
     font-weight: bold;
+    font-size: 11px;
+}
+
+.delivery-driver-short {
+    font-size: 10px;
+    color: #e8f4f8;
+}
+
+.delivery-dest-short {
+    font-size: 10px;
+    color: #a3d5ff;
 }
 
 .calendar-separator {
