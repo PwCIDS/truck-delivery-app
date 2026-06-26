@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -132,71 +133,71 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Dashboard Cards */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <Link href="/deliveries" className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition block">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-800">配送管理</h2>
               <span className="text-3xl">📦</span>
             </div>
-            <p className="text-gray-600">配送状況の確認と管理</p>
-            <button className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition duration-200">
+            <p className="text-gray-600 mb-4">配送状況の確認と管理</p>
+            <div className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition duration-200 text-center">
               開く
-            </button>
-          </div>
+            </div>
+          </Link>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <Link href="/trucks" className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition block">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-800">トラック管理</h2>
               <span className="text-3xl">🚚</span>
             </div>
-            <p className="text-gray-600">トラック情報の管理</p>
-            <button className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition duration-200">
+            <p className="text-gray-600 mb-4">トラック情報の管理</p>
+            <div className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition duration-200 text-center">
               開く
-            </button>
-          </div>
+            </div>
+          </Link>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <Link href="/customers" className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition block">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-800">顧客管理</h2>
               <span className="text-3xl">👥</span>
             </div>
-            <p className="text-gray-600">顧客情報の管理</p>
-            <button className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition duration-200">
+            <p className="text-gray-600 mb-4">顧客情報の管理</p>
+            <div className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition duration-200 text-center">
               開く
-            </button>
-          </div>
+            </div>
+          </Link>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <Link href="/gps" className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition block">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-800">GPS追跡</h2>
               <span className="text-3xl">📍</span>
             </div>
-            <p className="text-gray-600">リアルタイムGPS追跡</p>
-            <button className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition duration-200">
+            <p className="text-gray-600 mb-4">リアルタイムGPS追跡</p>
+            <div className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition duration-200 text-center">
               開く
-            </button>
-          </div>
+            </div>
+          </Link>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <Link href="/reports" className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition block">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-800">レポート</h2>
               <span className="text-3xl">📊</span>
             </div>
-            <p className="text-gray-600">分析レポートの表示</p>
-            <button className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition duration-200">
+            <p className="text-gray-600 mb-4">分析レポートの表示</p>
+            <div className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition duration-200 text-center">
               開く
-            </button>
-          </div>
+            </div>
+          </Link>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <Link href="/settings" className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition block">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-800">設定</h2>
               <span className="text-3xl">⚙️</span>
             </div>
-            <p className="text-gray-600">システム設定</p>
-            <button className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition duration-200">
+            <p className="text-gray-600 mb-4">システム設定</p>
+            <div className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition duration-200 text-center">
               開く
-            </button>
-          </div>
+            </div>
+          </Link>
         </div>
 
         {/* Statistics */}
